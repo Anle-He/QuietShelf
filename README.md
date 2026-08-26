@@ -17,7 +17,9 @@ QuietShelf 是一个本地优先、低打扰的 Windows 书影音记录应用。
 
 ## 运行与数据
 
-发布版本是免安装的 Windows 单文件程序。个人记录默认保存在：
+从 [Releases](https://github.com/Anle-He/QuietShelf/releases) 下载 `QuietShelf-Setup-<版本>.exe`。安装完成后可以从 Windows 开始菜单启动，并可在“已安装的应用”中卸载。
+
+个人记录默认保存在：
 
 ```text
 %LOCALAPPDATA%\QuietShelf\records.db
@@ -34,13 +36,10 @@ dotnet restore .\QuietShelf.slnx
 dotnet build .\QuietShelf.slnx -c Release
 ```
 
-生成免安装的单文件程序：
+生成 Windows 安装包需要 .NET 10 SDK 与 Inno Setup 6：
 
 ```powershell
-dotnet publish .\src\QuietShelf.App\QuietShelf.App.csproj `
-  -c Release -r win-x64 --self-contained true `
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
-  -o .\artifacts\win-x64
+.\scripts\build-installer.ps1
 ```
 
 ## 产品边界与设计
@@ -50,4 +49,3 @@ dotnet publish .\src\QuietShelf.App\QuietShelf.App.csproj `
 ## License
 
 [MIT](LICENSE)
-
