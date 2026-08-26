@@ -1,0 +1,27 @@
+<Application x:Class="QuietShelf.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Light" />
+                <ui:ControlsDictionary />
+            </ResourceDictionary.MergedDictionaries>
+
+            <SolidColorBrush x:Key="PageBrush" Color="#F5F7F5" />
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#FCFDFC" />
+            <SolidColorBrush x:Key="TextBrush" Color="#202522" />
+            <SolidColorBrush x:Key="MutedBrush" Color="#68716B" />
+            <SolidColorBrush x:Key="AccentBrush" Color="#35664F" />
+            <SolidColorBrush x:Key="AccentSoftBrush" Color="#E5EFE9" />
+            <SolidColorBrush x:Key="WarningSoftBrush" Color="#F6EEE0" />
+            <SolidColorBrush x:Key="DangerSoftBrush" Color="#F8E9E7" />
+            <SolidColorBrush x:Key="DividerBrush" Color="#E2E7E3" />
+
+            <CornerRadius x:Key="CardRadius">12</CornerRadius>
+            <Thickness x:Key="PagePadding">28</Thickness>
+            <Thickness x:Key="CardPadding">18</Thickness>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

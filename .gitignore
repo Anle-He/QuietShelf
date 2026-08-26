@@ -1,0 +1,20 @@
+.vs/
+.idea/
+.vscode/
+
+**/bin/
+**/obj/
+artifacts/
+publish/
+TestResults/
+
+*.user
+*.suo
+*.pdb
+*.zip
+
+# QuietShelf local records and SQLite sidecar files
+*.db
+*.db-shm
+*.db-wal
+

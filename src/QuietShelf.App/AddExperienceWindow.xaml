@@ -1,0 +1,51 @@
+<Window x:Class="QuietShelf.AddExperienceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        Title="记录一次" Height="640" Width="520" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="Assets/app-icon.ico"
+        Background="{StaticResource PageBrush}" FontFamily="Segoe UI, Microsoft YaHei UI">
+    <Grid Margin="34">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel>
+            <TextBlock x:Name="HeadingText" Text="记录一次" FontSize="26" FontWeight="SemiBold" />
+            <TextBlock x:Name="IntroText" Text="先记下开始日期，过程可以慢慢留下。" Margin="0,7,0,0" Foreground="{StaticResource MutedBrush}" />
+        </StackPanel>
+        <ScrollViewer Grid.Row="1" Margin="0,24,0,18" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0,0,8,0">
+                <TextBlock x:Name="StartDateLabel" Text="开始日期" Margin="0,0,0,7" />
+                <DatePicker x:Name="StartedOnPicker" Height="40" />
+                <TextBlock x:Name="DateError" Text="结束日期不能早于开始日期" Foreground="#A33A32"
+                           Margin="2,6,0,0" Visibility="Collapsed" />
+                <StackPanel x:Name="CompletionPanel">
+                    <TextBlock x:Name="EndDateLabel" Text="结束日期" Margin="0,20,0,7" />
+                    <DatePicker x:Name="CompletedOnPicker" Height="40" />
+                    <Grid Margin="0,22,0,8">
+                        <StackPanel>
+                            <TextBlock Text="本次最终评分" FontSize="16" FontWeight="SemiBold" />
+                            <TextBlock Text="全部填写后计入作品综合分" Margin="0,4,0,0" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                        </StackPanel>
+                        <TextBlock x:Name="RankPreview" Text="未评分" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                   FontSize="15" FontWeight="SemiBold" Foreground="#9A6823" />
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <StackPanel><TextBlock Text="Allure" Margin="0,0,0,6"/><ComboBox x:Name="AllureBox" SelectionChanged="Rating_SelectionChanged"/></StackPanel>
+                        <StackPanel Grid.Column="2"><TextBlock Text="Immersion" Margin="0,0,0,6"/><ComboBox x:Name="ImmersionBox" SelectionChanged="Rating_SelectionChanged"/></StackPanel>
+                        <StackPanel Grid.Row="1" Margin="0,14,0,0"><TextBlock Text="Rationality" Margin="0,0,0,6"/><ComboBox x:Name="RationalityBox" SelectionChanged="Rating_SelectionChanged"/></StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,14,0,0"><TextBlock Text="Illumination" Margin="0,0,0,6"/><ComboBox x:Name="IlluminationBox" SelectionChanged="Rating_SelectionChanged"/></StackPanel>
+                    </Grid>
+                    <TextBlock Text="这一次的总结" Margin="0,20,0,7" />
+                    <ui:TextBox x:Name="NotesBox" Height="90" AcceptsReturn="True" TextWrapping="Wrap" MaxLength="1000"
+                                PlaceholderText="留下一段只属于这一次的总结" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <ui:Button Content="取消" Appearance="Secondary" Margin="0,0,10,0" Click="Cancel_Click" />
+            <ui:Button x:Name="SaveButton" Content="保存记录" Icon="{ui:SymbolIcon Save24}"
+                       Appearance="Primary" Click="Save_Click" IsDefault="True" />
+        </StackPanel>
+    </Grid>
+</Window>
