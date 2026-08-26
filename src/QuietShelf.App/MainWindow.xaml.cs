@@ -239,24 +239,24 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             var placeholder = new Border
             {
-                Width = 68,
-                Height = 96,
-                CornerRadius = new CornerRadius(8),
+                Width = 108,
+                Height = 152,
+                CornerRadius = new CornerRadius(9),
                 Background = (Brush)FindResource("AccentSoftBrush"),
                 BorderBrush = (Brush)FindResource("DividerBrush"),
                 BorderThickness = new Thickness(1),
                 Child = new TextBlock
                 {
                     Text = _selectedWork?.KindGlyph ?? "书",
-                    FontSize = 21,
+                    FontSize = 25,
                     FontWeight = FontWeights.DemiBold,
                     Foreground = (Brush)FindResource("AccentBrush"),
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center
                 }
             };
-            Canvas.SetLeft(placeholder, 11);
-            Canvas.SetTop(placeholder, 10);
+            Canvas.SetLeft(placeholder, 8);
+            Canvas.SetTop(placeholder, 8);
             DetailCoverCanvas.Children.Add(placeholder);
             AddCoverBadge("+");
             return;
@@ -268,27 +268,28 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             var position = Math.Min(cover.SortOrder, 2);
             var (left, top, angle) = position switch
             {
-                0 => (8d, 12d, 0d),
-                1 => (14d, 8d, 4d),
-                _ => (3d, 8d, -4d)
+                0 => (8d, 8d, 0d),
+                1 => (11d, 7d, 3d),
+                _ => (5d, 7d, -3d)
             };
             var image = new Image
             {
                 Source = new CoverImageConverter().Convert(cover.FilePath, typeof(ImageSource), null!, System.Globalization.CultureInfo.InvariantCulture) as ImageSource,
-                Stretch = Stretch.UniformToFill
+                Stretch = Stretch.Uniform,
+                Margin = new Thickness(2)
             };
             var card = new Border
             {
-                Width = 68,
-                Height = 96,
-                CornerRadius = new CornerRadius(7),
-                Background = Brushes.White,
-                BorderBrush = Brushes.White,
-                BorderThickness = new Thickness(3),
+                Width = 108,
+                Height = 152,
+                CornerRadius = new CornerRadius(8),
+                Background = new SolidColorBrush(Color.FromRgb(232, 236, 233)),
+                BorderBrush = (Brush)FindResource("DividerBrush"),
+                BorderThickness = new Thickness(1),
                 ClipToBounds = true,
                 RenderTransformOrigin = new Point(0.5, 0.5),
                 RenderTransform = new RotateTransform(angle),
-                Effect = new DropShadowEffect { BlurRadius = 8, ShadowDepth = 2, Opacity = 0.2 },
+                Effect = new DropShadowEffect { BlurRadius = 9, ShadowDepth = 2, Opacity = 0.16 },
                 Child = image
             };
             Canvas.SetLeft(card, left);
@@ -322,8 +323,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 VerticalAlignment = VerticalAlignment.Center
             }
         };
-        Canvas.SetRight(badge, 1);
-        Canvas.SetBottom(badge, 3);
+        Canvas.SetRight(badge, 0);
+        Canvas.SetBottom(badge, 1);
         DetailCoverCanvas.Children.Add(badge);
     }
 

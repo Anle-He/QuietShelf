@@ -45,9 +45,11 @@
                             <Border Width="168" Margin="0,0,14,14" Padding="10" Background="{StaticResource SurfaceBrush}"
                                     BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" CornerRadius="12">
                                 <StackPanel>
-                                    <Border Height="206" Background="#E8ECE9" CornerRadius="8" ClipToBounds="True">
+                                    <Border Width="132" Height="186" HorizontalAlignment="Center"
+                                            Background="#E8ECE9" BorderBrush="{StaticResource DividerBrush}"
+                                            BorderThickness="1" CornerRadius="8" ClipToBounds="True">
                                         <Image Source="{Binding FilePath, Converter={StaticResource CoverImageConverter}}"
-                                               Stretch="UniformToFill" />
+                                               Stretch="Uniform" Margin="3" />
                                     </Border>
                                     <TextBlock Text="{Binding PositionLabel}" Margin="2,10,2,0" FontWeight="DemiBold" />
                                     <ui:Button Content="设为主封面" Margin="0,9,0,0" Tag="{Binding}"
