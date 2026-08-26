@@ -1,6 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Effects;
+using QuietShelf.Converters;
 using QuietShelf.Data;
 using QuietShelf.Models;
 
@@ -182,9 +185,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
 
+        var covers = await _repository.GetCoversAsync(workId);
         var allExperiences = await _repository.GetExperiencesAsync(workId);
         _activeExperience = allExperiences.FirstOrDefault(experience => experience.StartedOn is not null && experience.CompletedOn is null);
 
+        RenderCoverStack(covers);
         DetailTitleText.Text = _selectedWork.Title;
         DetailSubtitleText.Text = _selectedWork.Subtitle ?? string.Empty;
         DetailSubtitleText.Visibility = string.IsNullOrWhiteSpace(_selectedWork.Subtitle)
@@ -225,6 +230,101 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         DetailEmpty.Visibility = Visibility.Collapsed;
         DetailScroll.Visibility = Visibility.Visible;
+    }
+
+    private void RenderCoverStack(IReadOnlyList<WorkCover> covers)
+    {
+        DetailCoverCanvas.Children.Clear();
+        if (_selectedWork is null || covers.Count == 0)
+        {
+            var placeholder = new Border
+            {
+                Width = 68,
+                Height = 96,
+                CornerRadius = new CornerRadius(8),
+                Background = (Brush)FindResource("AccentSoftBrush"),
+                BorderBrush = (Brush)FindResource("DividerBrush"),
+                BorderThickness = new Thickness(1),
+                Child = new TextBlock
+                {
+                    Text = _selectedWork?.KindGlyph ?? "书",
+                    FontSize = 21,
+                    FontWeight = FontWeights.DemiBold,
+                    Foreground = (Brush)FindResource("AccentBrush"),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            };
+            Canvas.SetLeft(placeholder, 11);
+            Canvas.SetTop(placeholder, 10);
+            DetailCoverCanvas.Children.Add(placeholder);
+            AddCoverBadge("+");
+            return;
+        }
+
+        var visible = covers.Take(3).Reverse().ToList();
+        foreach (var cover in visible)
+        {
+            var position = Math.Min(cover.SortOrder, 2);
+            var (left, top, angle) = position switch
+            {
+                0 => (8d, 12d, 0d),
+                1 => (14d, 8d, 4d),
+                _ => (3d, 8d, -4d)
+            };
+            var image = new Image
+            {
+                Source = new CoverImageConverter().Convert(cover.FilePath, typeof(ImageSource), null!, System.Globalization.CultureInfo.InvariantCulture) as ImageSource,
+                Stretch = Stretch.UniformToFill
+            };
+            var card = new Border
+            {
+                Width = 68,
+                Height = 96,
+                CornerRadius = new CornerRadius(7),
+                Background = Brushes.White,
+                BorderBrush = Brushes.White,
+                BorderThickness = new Thickness(3),
+                ClipToBounds = true,
+                RenderTransformOrigin = new Point(0.5, 0.5),
+                RenderTransform = new RotateTransform(angle),
+                Effect = new DropShadowEffect { BlurRadius = 8, ShadowDepth = 2, Opacity = 0.2 },
+                Child = image
+            };
+            Canvas.SetLeft(card, left);
+            Canvas.SetTop(card, top);
+            DetailCoverCanvas.Children.Add(card);
+        }
+        if (covers.Count > 1)
+        {
+            AddCoverBadge(covers.Count.ToString());
+        }
+    }
+
+    private void AddCoverBadge(string text)
+    {
+        var badge = new Border
+        {
+            MinWidth = 25,
+            Height = 25,
+            Padding = new Thickness(6, 0, 6, 0),
+            CornerRadius = new CornerRadius(13),
+            Background = (Brush)FindResource("AccentBrush"),
+            BorderBrush = Brushes.White,
+            BorderThickness = new Thickness(2),
+            Child = new TextBlock
+            {
+                Text = text,
+                Foreground = Brushes.White,
+                FontSize = 12,
+                FontWeight = FontWeights.DemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            }
+        };
+        Canvas.SetRight(badge, 1);
+        Canvas.SetBottom(badge, 3);
+        DetailCoverCanvas.Children.Add(badge);
     }
 
     private void ShowNoSelection()
@@ -404,5 +504,17 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         await _repository.UpdateWorkMetadataAsync(dialog.Work);
         SearchBox.Clear();
         await ReloadLibraryAsync(dialog.Work.Id);
+    }
+
+    private async void ManageCovers_Click(object sender, RoutedEventArgs e)
+    {
+        if (_repository is null || _selectedWork is null)
+        {
+            return;
+        }
+
+        var workId = _selectedWork.Id;
+        new ManageCoversWindow(_repository, _selectedWork) { Owner = this }.ShowDialog();
+        await ReloadLibraryAsync(workId);
     }
 }

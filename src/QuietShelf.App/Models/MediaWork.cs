@@ -8,6 +8,7 @@ public sealed class MediaWork
     public required string Kind { get; init; }
     public string? Status { get; init; }
     public int? TotalEpisodes { get; init; }
+    public string? PrimaryCoverPath { get; init; }
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.Now;
     public DateTimeOffset UpdatedAt { get; init; } = DateTimeOffset.Now;
     public int ExperienceCount { get; init; }
@@ -29,4 +30,5 @@ public sealed class MediaWork
     public string ExperienceCountLabel => Kind == "book" ? $"阅读 {ExperienceCount} 次" : $"观看 {ExperienceCount} 次";
     public string RatingCountLabel => RatedExperienceCount == 0 ? "尚无完整评分" : $"来自 {RatedExperienceCount} 次评分";
     public string LatestActivityLabel => LatestActivityOn is null ? "尚未记录" : $"最近 {LatestActivityOn:yyyy-MM-dd}";
+    public bool HasPrimaryCover => !string.IsNullOrWhiteSpace(PrimaryCoverPath);
 }

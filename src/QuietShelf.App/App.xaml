@@ -1,6 +1,7 @@
 <Application x:Class="QuietShelf.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:QuietShelf.Converters"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
     <Application.Resources>
         <ResourceDictionary>
@@ -22,6 +23,7 @@
             <CornerRadius x:Key="CardRadius">12</CornerRadius>
             <Thickness x:Key="PagePadding">28</Thickness>
             <Thickness x:Key="CardPadding">18</Thickness>
+            <converters:CoverImageConverter x:Key="CoverImageConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

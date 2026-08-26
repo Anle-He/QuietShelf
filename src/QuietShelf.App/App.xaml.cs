@@ -70,6 +70,32 @@ public partial class App : Application
                     {
                         throw new InvalidOperationException("Work subtitle update failed.");
                     }
+                    var firstCoverSource = Path.Combine(smokeDirectory, "first.png");
+                    var secondCoverSource = Path.Combine(smokeDirectory, "second.png");
+                    var pixelPng = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+                    await File.WriteAllBytesAsync(firstCoverSource, pixelPng);
+                    await File.WriteAllBytesAsync(secondCoverSource, pixelPng);
+                    await repository.AddCoversAsync(work.Id, [firstCoverSource, secondCoverSource]);
+                    var covers = await repository.GetCoversAsync(work.Id);
+                    var workWithCover = await repository.GetWorkAsync(work.Id);
+                    if (covers.Count != 2 || !covers[0].IsPrimary || !File.Exists(covers[0].FilePath)
+                        || string.IsNullOrWhiteSpace(workWithCover?.PrimaryCoverPath))
+                    {
+                        throw new InvalidOperationException("Cover import failed.");
+                    }
+                    await repository.SetPrimaryCoverAsync(work.Id, covers[1].Id);
+                    var reorderedCovers = await repository.GetCoversAsync(work.Id);
+                    if (reorderedCovers[0].Id != covers[1].Id)
+                    {
+                        throw new InvalidOperationException("Primary cover ordering failed.");
+                    }
+                    var deletedCoverPath = reorderedCovers[1].FilePath;
+                    await repository.DeleteCoverAsync(work.Id, reorderedCovers[1].Id);
+                    var remainingCovers = await repository.GetCoversAsync(work.Id);
+                    if (remainingCovers.Count != 1 || !remainingCovers[0].IsPrimary || File.Exists(deletedCoverPath))
+                    {
+                        throw new InvalidOperationException("Cover deletion failed.");
+                    }
                     var firstProgress = new ProgressEntry
                     {
                         ExperienceId = active.Id,
@@ -265,6 +291,19 @@ public partial class App : Application
                 {
                     throw new InvalidOperationException("Episode progress form did not switch its fields and example text.");
                 }
+                var coversWindow = new ManageCoversWindow(repository, new MediaWork
+                {
+                    Id = "cover-ui-smoke-test",
+                    Title = "cover-ui-smoke-test",
+                    Kind = "book"
+                }) { ShowActivated = false };
+                coversWindow.Show();
+                coversWindow.UpdateLayout();
+                if (coversWindow.ActualWidth < 680 || coversWindow.ActualHeight < 500)
+                {
+                    throw new InvalidOperationException("Cover management layout did not render at a usable size.");
+                }
+                coversWindow.Close();
                 _ = new WorkDetailWindow(repository, "smoke-test");
                 Environment.Exit(0);
             }

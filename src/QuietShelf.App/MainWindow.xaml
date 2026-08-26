@@ -109,9 +109,26 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <Border Width="34" Height="42" CornerRadius="8" Background="#DCE9E1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding KindGlyph}" FontWeight="DemiBold" Foreground="{StaticResource AccentBrush}"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <Border Width="34" Height="44" CornerRadius="7" Background="#DCE9E1" VerticalAlignment="Center" ClipToBounds="True">
+                                        <Grid>
+                                            <Image Source="{Binding PrimaryCoverPath, Converter={StaticResource CoverImageConverter}}" Stretch="UniformToFill">
+                                                <Image.Style>
+                                                    <Style TargetType="Image">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers><DataTrigger Binding="{Binding HasPrimaryCover}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
+                                                    </Style>
+                                                </Image.Style>
+                                            </Image>
+                                            <TextBlock Text="{Binding KindGlyph}" FontWeight="DemiBold" Foreground="{StaticResource AccentBrush}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                        <Style.Triggers><DataTrigger Binding="{Binding HasPrimaryCover}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
                                     </Border>
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="DemiBold" TextTrimming="CharacterEllipsis" />
@@ -149,15 +166,21 @@
                               HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="0,0,8,0">
                         <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <StackPanel>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ui:Button x:Name="DetailCoverButton" Width="96" Height="128" Padding="0" Appearance="Transparent"
+                                       VerticalAlignment="Top" ToolTip="管理封面" Click="ManageCovers_Click">
+                                <Canvas x:Name="DetailCoverCanvas" Width="92" Height="124" />
+                            </ui:Button>
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                 <TextBlock x:Name="DetailTitleText" FontSize="28" FontWeight="DemiBold" TextWrapping="Wrap" />
                                 <TextBlock x:Name="DetailSubtitleText" Margin="0,5,0,0" FontSize="17"
                                            Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" MaxHeight="50"
                                            Visibility="Collapsed" />
                                 <TextBlock x:Name="DetailMetaText" Margin="0,6,0,0" Foreground="{StaticResource MutedBrush}" />
                             </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
                                 <ui:Button Content="编辑信息" Appearance="Transparent" Icon="{ui:SymbolIcon Edit24}"
                                            Margin="0,0,8,0" Click="EditWork_Click" />
                                 <ui:Button Content="删除作品" Appearance="Transparent" Icon="{ui:SymbolIcon Delete24}"

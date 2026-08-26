@@ -1,0 +1,84 @@
+<Window x:Class="QuietShelf.ManageCoversWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        Title="管理封面" Width="820" Height="650" MinWidth="680" MinHeight="520"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="Assets/app-icon.ico"
+        Background="{StaticResource PageBrush}" FontFamily="Segoe UI, Microsoft YaHei UI">
+    <Grid Margin="30">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <StackPanel>
+                <TextBlock Text="封面" FontSize="27" FontWeight="SemiBold" />
+                <TextBlock x:Name="CoverCountText" Margin="0,7,0,0" Foreground="{StaticResource MutedBrush}" />
+            </StackPanel>
+            <ui:Button HorizontalAlignment="Right" VerticalAlignment="Center" Appearance="Primary"
+                       Content="添加封面" Icon="{ui:SymbolIcon Add24}" Click="AddCovers_Click" />
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,24,0,20">
+            <Border x:Name="EmptyState" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource DividerBrush}"
+                    BorderThickness="1" CornerRadius="{StaticResource CardRadius}" Padding="28">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <ui:SymbolIcon Symbol="Image24" FontSize="34" Foreground="{StaticResource AccentBrush}"
+                                   HorizontalAlignment="Center" />
+                    <TextBlock Text="还没有封面" Margin="0,16,0,0" FontSize="18" FontWeight="DemiBold"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="添加不同版本的封面，它们会像一叠照片一样展示。" Margin="0,7,0,0"
+                               Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
+            <ScrollViewer x:Name="CoverScroll" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Covers}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Width="168" Margin="0,0,14,14" Padding="10" Background="{StaticResource SurfaceBrush}"
+                                    BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" CornerRadius="12">
+                                <StackPanel>
+                                    <Border Height="206" Background="#E8ECE9" CornerRadius="8" ClipToBounds="True">
+                                        <Image Source="{Binding FilePath, Converter={StaticResource CoverImageConverter}}"
+                                               Stretch="UniformToFill" />
+                                    </Border>
+                                    <TextBlock Text="{Binding PositionLabel}" Margin="2,10,2,0" FontWeight="DemiBold" />
+                                    <ui:Button Content="设为主封面" Margin="0,9,0,0" Tag="{Binding}"
+                                               Appearance="Secondary" Click="SetPrimary_Click">
+                                        <ui:Button.Style>
+                                            <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                                <Setter Property="IsEnabled" Value="True" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsPrimary}" Value="True">
+                                                        <Setter Property="IsEnabled" Value="False" />
+                                                        <Setter Property="Content" Value="当前主封面" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ui:Button.Style>
+                                    </ui:Button>
+                                    <Grid Margin="0,7,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                        <ui:Button Content="前移" Tag="{Binding}" Click="MoveEarlier_Click" />
+                                        <ui:Button Grid.Column="1" Content="后移" Margin="5,0" Tag="{Binding}" Click="MoveLater_Click" />
+                                        <ui:Button Grid.Column="2" Icon="{ui:SymbolIcon Delete24}" ToolTip="删除封面"
+                                                   Tag="{Binding}" Click="DeleteCover_Click" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+
+        <ui:Button Grid.Row="2" HorizontalAlignment="Right" Content="完成" Appearance="Primary" Click="Close_Click" />
+    </Grid>
+</Window>

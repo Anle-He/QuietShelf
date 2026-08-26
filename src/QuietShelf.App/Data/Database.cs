@@ -7,16 +7,47 @@ public sealed class Database
 {
     public Database(string? databasePath = null)
     {
-        var path = databasePath ?? GetDefaultPath();
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        DatabasePath = Path.GetFullPath(databasePath ?? GetDefaultPath());
+        DataDirectory = Path.GetDirectoryName(DatabasePath)!;
+        CoversDirectory = Path.Combine(DataDirectory, "covers");
+        Directory.CreateDirectory(DataDirectory);
+        Directory.CreateDirectory(CoversDirectory);
         ConnectionString = new SqliteConnectionStringBuilder
         {
-            DataSource = path,
+            DataSource = DatabasePath,
             Mode = SqliteOpenMode.ReadWriteCreate
         }.ToString();
     }
 
     public string ConnectionString { get; }
+    public string DatabasePath { get; }
+    public string DataDirectory { get; }
+    public string CoversDirectory { get; }
+
+    public string GetCoverDirectory(string workId)
+    {
+        if (string.IsNullOrWhiteSpace(workId) || workId.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            throw new InvalidOperationException("Invalid work identifier for cover storage.");
+        }
+
+        var root = Path.GetFullPath(CoversDirectory) + Path.DirectorySeparatorChar;
+        var directory = Path.GetFullPath(Path.Combine(CoversDirectory, workId));
+        if (!directory.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Cover directory escaped the data root.");
+        }
+        return directory;
+    }
+
+    public string GetCoverFilePath(string workId, string fileName)
+    {
+        if (!string.Equals(fileName, Path.GetFileName(fileName), StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Invalid cover file name.");
+        }
+        return Path.Combine(GetCoverDirectory(workId), fileName);
+    }
 
     public async Task InitializeAsync()
     {
@@ -81,9 +112,19 @@ public sealed class Database
                 updated_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS work_covers (
+                id TEXT PRIMARY KEY,
+                work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+                file_name TEXT NOT NULL,
+                sort_order INTEGER NOT NULL CHECK (sort_order >= 0),
+                created_at TEXT NOT NULL,
+                UNIQUE (work_id, file_name)
+            );
+
             CREATE INDEX IF NOT EXISTS ix_works_title ON works (title COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS ix_experiences_work_date ON experiences (work_id, completed_on DESC, created_at DESC);
             CREATE INDEX IF NOT EXISTS ix_progress_experience_date ON progress_entries (experience_id, logged_on DESC, created_at DESC);
+            CREATE INDEX IF NOT EXISTS ix_work_covers_order ON work_covers (work_id, sort_order, created_at);
             """;
         await command.ExecuteNonQueryAsync();
 
