@@ -125,7 +125,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         var query = SearchBox?.Text.Trim() ?? string.Empty;
         var matches = _allWorks.Where(work =>
             (_kindFilter == "all" || work.Kind == _kindFilter) &&
-            (string.IsNullOrWhiteSpace(query) || work.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase))).ToList();
+            (string.IsNullOrWhiteSpace(query)
+             || work.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+             || (work.Subtitle?.Contains(query, StringComparison.CurrentCultureIgnoreCase) ?? false))).ToList();
 
         VisibleWorks.Clear();
         foreach (var work in matches)
@@ -184,6 +186,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _activeExperience = allExperiences.FirstOrDefault(experience => experience.StartedOn is not null && experience.CompletedOn is null);
 
         DetailTitleText.Text = _selectedWork.Title;
+        DetailSubtitleText.Text = _selectedWork.Subtitle ?? string.Empty;
+        DetailSubtitleText.Visibility = string.IsNullOrWhiteSpace(_selectedWork.Subtitle)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
         DetailMetaText.Text = $"{_selectedWork.KindLabel} · {_selectedWork.StatusLabel} · {_selectedWork.LatestActivityLabel}";
         DetailRankText.Text = _selectedWork.AggregateRankLabel;
         DetailCountText.Text = _selectedWork.ExperienceCountLabel;
@@ -380,5 +386,23 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _selectedWorkId = null;
         ShowNoSelection();
         await ReloadLibraryAsync();
+    }
+
+    private async void EditWork_Click(object sender, RoutedEventArgs e)
+    {
+        if (_repository is null || _selectedWork is null)
+        {
+            return;
+        }
+
+        var dialog = new AddWorkWindow(_selectedWork) { Owner = this };
+        if (dialog.ShowDialog() != true || dialog.Work is null)
+        {
+            return;
+        }
+
+        await _repository.UpdateWorkMetadataAsync(dialog.Work);
+        SearchBox.Clear();
+        await ReloadLibraryAsync(dialog.Work.Id);
     }
 }

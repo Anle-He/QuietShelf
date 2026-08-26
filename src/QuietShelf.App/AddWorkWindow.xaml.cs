@@ -6,9 +6,23 @@ namespace QuietShelf;
 
 public partial class AddWorkWindow : Window
 {
-    public AddWorkWindow()
+    private readonly MediaWork? _existingWork;
+
+    public AddWorkWindow(MediaWork? existingWork = null)
     {
+        _existingWork = existingWork;
         InitializeComponent();
+        if (existingWork is not null)
+        {
+            Title = "编辑作品信息";
+            HeadingText.Text = "编辑作品信息";
+            DescriptionText.Text = "修改作品的标题和副标题。";
+            AddButton.Content = "保存";
+            TitleBox.Text = existingWork.Title;
+            SubtitleBox.Text = existingWork.Subtitle ?? string.Empty;
+            KindBox.SelectedIndex = existingWork.Kind == "screen" ? 1 : 0;
+            KindBox.IsEnabled = false;
+        }
         Loaded += (_, _) => TitleBox.Focus();
     }
 
@@ -35,10 +49,13 @@ public partial class AddWorkWindow : Window
         var now = DateTimeOffset.Now;
         Work = new MediaWork
         {
+            Id = _existingWork?.Id ?? Guid.NewGuid().ToString("N"),
             Title = title,
+            Subtitle = string.IsNullOrWhiteSpace(SubtitleBox.Text) ? null : SubtitleBox.Text.Trim(),
             Kind = ((ComboBoxItem)KindBox.SelectedItem).Tag?.ToString() ?? "book",
-            Status = "planned",
-            CreatedAt = now,
+            Status = _existingWork?.Status ?? "planned",
+            TotalEpisodes = _existingWork?.TotalEpisodes,
+            CreatedAt = _existingWork?.CreatedAt ?? now,
             UpdatedAt = now
         };
         DialogResult = true;

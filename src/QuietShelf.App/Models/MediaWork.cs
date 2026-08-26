@@ -4,6 +4,7 @@ public sealed class MediaWork
 {
     public string Id { get; init; } = Guid.NewGuid().ToString("N");
     public required string Title { get; init; }
+    public string? Subtitle { get; init; }
     public required string Kind { get; init; }
     public string? Status { get; init; }
     public int? TotalEpisodes { get; init; }

@@ -48,6 +48,7 @@ public sealed class Database
             CREATE TABLE IF NOT EXISTS works (
                 id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
+                subtitle TEXT NULL,
                 kind TEXT NOT NULL CHECK (kind IN ('book', 'screen')),
                 status TEXT NULL CHECK (status IS NULL OR status IN ('planned', 'in_progress', 'completed')),
                 total_episodes INTEGER NULL CHECK (total_episodes IS NULL OR total_episodes > 0),
@@ -91,6 +92,7 @@ public sealed class Database
         await EnsureLegacyColumnAsync(connection, "rationality");
         await EnsureLegacyColumnAsync(connection, "illumination");
         await EnsureExperienceColumnAsync(connection, "started_on");
+        await EnsureWorkColumnAsync(connection, "subtitle");
         await EnsureWorkColumnAsync(connection, "total_episodes");
 
         var activeIndex = connection.CreateCommand();
@@ -186,13 +188,15 @@ public sealed class Database
             }
         }
 
-        if (!string.Equals(columnName, "total_episodes", StringComparison.Ordinal))
+        var definition = columnName switch
         {
-            throw new InvalidOperationException("Unsupported work column migration.");
-        }
+            "subtitle" => "subtitle TEXT NULL",
+            "total_episodes" => "total_episodes INTEGER NULL CHECK (total_episodes IS NULL OR total_episodes > 0)",
+            _ => throw new InvalidOperationException("Unsupported work column migration.")
+        };
 
         var alter = connection.CreateCommand();
-        alter.CommandText = "ALTER TABLE works ADD COLUMN total_episodes INTEGER NULL CHECK (total_episodes IS NULL OR total_episodes > 0);";
+        alter.CommandText = $"ALTER TABLE works ADD COLUMN {definition};";
         await alter.ExecuteNonQueryAsync();
     }
 

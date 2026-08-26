@@ -43,7 +43,7 @@ public partial class App : Application
                     var smokeDatabase = new Database(Path.Combine(smokeDirectory, "smoke.db"));
                     await smokeDatabase.InitializeAsync();
                     var repository = new LibraryRepository(smokeDatabase);
-                    var work = new MediaWork { Title = "smoke-test", Kind = "book" };
+                    var work = new MediaWork { Title = "smoke-test", Subtitle = "subtitle-smoke-test", Kind = "book" };
                     await repository.AddWorkAsync(work);
                     var active = new MediaExperience
                     {
@@ -52,9 +52,23 @@ public partial class App : Application
                     };
                     await repository.AddExperienceAsync(active);
                     var during = await repository.GetWorkAsync(work.Id);
-                    if (during is null || !during.HasActiveExperience || during.ExperienceCount != 0)
+                    if (during is null || during.Subtitle != "subtitle-smoke-test"
+                        || !during.HasActiveExperience || during.ExperienceCount != 0)
                     {
                         throw new InvalidOperationException("Active experience lifecycle failed.");
+                    }
+                    await repository.UpdateWorkMetadataAsync(new MediaWork
+                    {
+                        Id = work.Id,
+                        Title = work.Title,
+                        Subtitle = "updated-subtitle-smoke-test",
+                        Kind = work.Kind,
+                        Status = during.Status,
+                        CreatedAt = work.CreatedAt
+                    });
+                    if ((await repository.GetWorkAsync(work.Id))?.Subtitle != "updated-subtitle-smoke-test")
+                    {
+                        throw new InvalidOperationException("Work subtitle update failed.");
                     }
                     var firstProgress = new ProgressEntry
                     {
@@ -220,15 +234,28 @@ public partial class App : Application
                 addFlow.Loaded += (_, _) => addFlow.Dispatcher.BeginInvoke(() =>
                 {
                     addFlow.TitleBox.Text = "button-smoke-test";
+                    addFlow.SubtitleBox.Text = "button-subtitle-smoke-test";
                     if (!addFlow.AddButton.IsEnabled)
                     {
                         throw new InvalidOperationException("Add-work button did not become enabled after entering a title.");
                     }
                     addFlow.AddButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));
                 });
-                if (addFlow.ShowDialog() != true || addFlow.Work?.Title != "button-smoke-test")
+                if (addFlow.ShowDialog() != true || addFlow.Work?.Title != "button-smoke-test"
+                    || addFlow.Work.Subtitle != "button-subtitle-smoke-test")
                 {
                     throw new InvalidOperationException("Add-work button flow failed.");
+                }
+                var editWork = new AddWorkWindow(new MediaWork
+                {
+                    Title = "edit-smoke-test",
+                    Subtitle = "existing-subtitle",
+                    Kind = "book"
+                });
+                if (editWork.TitleBox.Text != "edit-smoke-test" || editWork.SubtitleBox.Text != "existing-subtitle"
+                    || editWork.KindBox.IsEnabled || editWork.AddButton.Content?.ToString() != "保存")
+                {
+                    throw new InvalidOperationException("Edit-work metadata form failed.");
                 }
                 _ = new AddExperienceWindow("smoke-test", "book");
                 var progressDialog = new AddProgressWindow("smoke-experience", "screen", new DateOnly(2026, 8, 1));

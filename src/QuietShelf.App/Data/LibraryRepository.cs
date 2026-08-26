@@ -7,7 +7,7 @@ namespace QuietShelf.Data;
 public sealed class LibraryRepository(Database database)
 {
     private const string WorkSelect = """
-        SELECT w.id, w.title, w.kind, w.status, w.total_episodes, w.created_at, w.updated_at,
+        SELECT w.id, w.title, w.subtitle, w.kind, w.status, w.total_episodes, w.created_at, w.updated_at,
                SUM(CASE WHEN e.completed_on IS NOT NULL THEN 1 ELSE 0 END) AS experience_count,
                SUM(CASE WHEN e.started_on IS NOT NULL AND e.completed_on IS NULL THEN 1 ELSE 0 END) AS active_count,
                SUM(CASE WHEN e.completed_on IS NOT NULL AND e.allure IS NOT NULL AND e.immersion IS NOT NULL
@@ -101,15 +101,33 @@ public sealed class LibraryRepository(Database database)
         await using var connection = await OpenAsync();
         var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO works (id, title, kind, status, total_episodes, created_at, updated_at)
-            VALUES ($id, $title, $kind, $status, $totalEpisodes, $createdAt, $updatedAt);
+            INSERT INTO works (id, title, subtitle, kind, status, total_episodes, created_at, updated_at)
+            VALUES ($id, $title, $subtitle, $kind, $status, $totalEpisodes, $createdAt, $updatedAt);
             """;
         command.Parameters.AddWithValue("$id", work.Id);
         command.Parameters.AddWithValue("$title", work.Title);
+        command.Parameters.AddWithValue("$subtitle", (object?)work.Subtitle ?? DBNull.Value);
         command.Parameters.AddWithValue("$kind", work.Kind);
         command.Parameters.AddWithValue("$status", (object?)work.Status ?? DBNull.Value);
         command.Parameters.AddWithValue("$totalEpisodes", work.TotalEpisodes ?? (object)DBNull.Value);
         command.Parameters.AddWithValue("$createdAt", work.CreatedAt.ToString("O"));
+        command.Parameters.AddWithValue("$updatedAt", work.UpdatedAt.ToString("O"));
+        await command.ExecuteNonQueryAsync();
+    }
+
+    public async Task UpdateWorkMetadataAsync(MediaWork work)
+    {
+        await using var connection = await OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE works
+            SET title = $title, subtitle = $subtitle, kind = $kind, updated_at = $updatedAt
+            WHERE id = $id;
+            """;
+        command.Parameters.AddWithValue("$id", work.Id);
+        command.Parameters.AddWithValue("$title", work.Title);
+        command.Parameters.AddWithValue("$subtitle", (object?)work.Subtitle ?? DBNull.Value);
+        command.Parameters.AddWithValue("$kind", work.Kind);
         command.Parameters.AddWithValue("$updatedAt", work.UpdatedAt.ToString("O"));
         await command.ExecuteNonQueryAsync();
     }
@@ -348,21 +366,22 @@ public sealed class LibraryRepository(Database database)
 
     private static MediaWork ReadWork(SqliteDataReader reader)
     {
-        double? aggregate = reader.IsDBNull(10) ? null : reader.GetDouble(10);
+        double? aggregate = reader.IsDBNull(11) ? null : reader.GetDouble(11);
         return new MediaWork
         {
             Id = reader.GetString(0),
             Title = reader.GetString(1),
-            Kind = reader.GetString(2),
-            Status = reader.IsDBNull(3) ? null : reader.GetString(3),
-            TotalEpisodes = reader.IsDBNull(4) ? null : reader.GetInt32(4),
-            CreatedAt = DateTimeOffset.Parse(reader.GetString(5), CultureInfo.InvariantCulture),
-            UpdatedAt = DateTimeOffset.Parse(reader.GetString(6), CultureInfo.InvariantCulture),
-            ExperienceCount = reader.GetInt32(7),
-            HasActiveExperience = reader.GetInt32(8) > 0,
-            RatedExperienceCount = reader.GetInt32(9),
+            Subtitle = reader.IsDBNull(2) ? null : reader.GetString(2),
+            Kind = reader.GetString(3),
+            Status = reader.IsDBNull(4) ? null : reader.GetString(4),
+            TotalEpisodes = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+            CreatedAt = DateTimeOffset.Parse(reader.GetString(6), CultureInfo.InvariantCulture),
+            UpdatedAt = DateTimeOffset.Parse(reader.GetString(7), CultureInfo.InvariantCulture),
+            ExperienceCount = reader.GetInt32(8),
+            HasActiveExperience = reader.GetInt32(9) > 0,
+            RatedExperienceCount = reader.GetInt32(10),
             AggregateRank = aggregate is null ? null : Math.Round(aggregate.Value, 1, MidpointRounding.AwayFromZero),
-            LatestActivityOn = reader.IsDBNull(11) ? null : DateOnly.Parse(reader.GetString(11), CultureInfo.InvariantCulture)
+            LatestActivityOn = reader.IsDBNull(12) ? null : DateOnly.Parse(reader.GetString(12), CultureInfo.InvariantCulture)
         };
     }
 }

@@ -44,7 +44,7 @@
                 </Grid>
 
                 <ui:TextBox x:Name="SearchBox" Grid.Row="1" Margin="0,20,0,0" Height="40"
-                            PlaceholderText="搜索标题" TextChanged="SearchBox_TextChanged" />
+                            PlaceholderText="搜索标题或副标题" TextChanged="SearchBox_TextChanged" />
 
                 <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,14,0,14">
                     <ui:Button x:Name="AllFilterButton" Content="全部" Tag="all" Appearance="Primary" Click="Filter_Click" />
@@ -152,9 +152,14 @@
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                             <StackPanel>
                                 <TextBlock x:Name="DetailTitleText" FontSize="28" FontWeight="DemiBold" TextWrapping="Wrap" />
+                                <TextBlock x:Name="DetailSubtitleText" Margin="0,5,0,0" FontSize="17"
+                                           Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" MaxHeight="50"
+                                           Visibility="Collapsed" />
                                 <TextBlock x:Name="DetailMetaText" Margin="0,6,0,0" Foreground="{StaticResource MutedBrush}" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <ui:Button Content="编辑信息" Appearance="Transparent" Icon="{ui:SymbolIcon Edit24}"
+                                           Margin="0,0,8,0" Click="EditWork_Click" />
                                 <ui:Button Content="删除作品" Appearance="Transparent" Icon="{ui:SymbolIcon Delete24}"
                                            Margin="0,0,8,0" Click="DeleteWork_Click" />
                                 <ui:Button x:Name="PrimaryExperienceButton" Appearance="Primary" Click="PrimaryExperience_Click" />
