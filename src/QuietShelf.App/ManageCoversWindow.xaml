@@ -63,7 +63,7 @@
 
                                             <Border Background="#E8ECE9" CornerRadius="8" ClipToBounds="True"
                                                     Tag="{Binding}" MouseLeftButtonUp="PreviewCover_Click">
-                                                <Image Source="{Binding FilePath, Converter={StaticResource CoverImageConverter}}"
+                                                <Image Source="{Binding FilePath, Converter={StaticResource CoverImageConverter}, ConverterParameter=360}"
                                                        Stretch="Uniform" Margin="3" />
                                             </Border>
 

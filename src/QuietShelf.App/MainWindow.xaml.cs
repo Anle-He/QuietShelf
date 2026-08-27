@@ -19,6 +19,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private MediaWork? _selectedWork;
     private MediaExperience? _activeExperience;
     private int _selectionLoadVersion;
+    private CancellationTokenSource? _searchDebounceCancellation;
+    private bool _isApplyingFilters;
 
     public MainWindow()
     {
@@ -84,6 +86,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private async void WorkList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isApplyingFilters)
+        {
+            return;
+        }
+
         if (WorkList.SelectedItem is not MediaWork work)
         {
             if (VisibleWorks.Count == 0)
@@ -94,12 +101,37 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
 
         _selectedWorkId = work.Id;
-        await LoadSelectedWorkAsync(work.Id);
+        if (_selectedWork?.Id != work.Id)
+        {
+            await LoadSelectedWorkAsync(work.Id);
+        }
     }
 
-    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => ApplyFilters();
+    private async void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_repository is null)
+        {
+            return;
+        }
 
-    private void Filter_Click(object sender, RoutedEventArgs e)
+        _searchDebounceCancellation?.Cancel();
+        _searchDebounceCancellation?.Dispose();
+        var cancellation = new CancellationTokenSource();
+        _searchDebounceCancellation = cancellation;
+        try
+        {
+            await Task.Delay(200, cancellation.Token);
+            if (_searchDebounceCancellation == cancellation)
+            {
+                await ApplyFiltersAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async void Filter_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not System.Windows.Controls.Button button || button.Tag is not string filter)
         {
@@ -107,7 +139,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
         _kindFilter = filter;
         UpdateFilterButtons();
-        ApplyFilters();
+        CancelPendingSearch();
+        await ApplyFiltersAsync();
     }
 
     private async Task ReloadLibraryAsync(string? selectWorkId = null)
@@ -121,10 +154,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             _selectedWorkId = selectWorkId;
         }
-        ApplyFilters();
+        CancelPendingSearch();
+        await ApplyFiltersAsync(reloadSelected: true);
     }
 
-    private void ApplyFilters()
+    private async Task ApplyFiltersAsync(bool reloadSelected = false)
     {
         var query = SearchBox?.Text.Trim() ?? string.Empty;
         var matches = _allWorks.Where(work =>
@@ -133,10 +167,26 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
              || work.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase)
              || (work.Subtitle?.Contains(query, StringComparison.CurrentCultureIgnoreCase) ?? false))).ToList();
 
-        VisibleWorks.Clear();
-        foreach (var work in matches)
+        var selected = matches.FirstOrDefault(work => work.Id == _selectedWorkId);
+        if (selected is null && matches.Count > 0 && string.IsNullOrWhiteSpace(query))
         {
-            VisibleWorks.Add(work);
+            selected = matches[0];
+        }
+
+        _isApplyingFilters = true;
+        try
+        {
+            VisibleWorks.Clear();
+            foreach (var work in matches)
+            {
+                VisibleWorks.Add(work);
+            }
+
+            WorkList.SelectedItem = selected;
+        }
+        finally
+        {
+            _isApplyingFilters = false;
         }
 
         if (EmptyState is null || WorkList is null)
@@ -150,16 +200,24 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             ? "先加入一本书，或一部想留下来的影视。"
             : "换一个标题关键词或类别试试。";
 
-        var selected = matches.FirstOrDefault(work => work.Id == _selectedWorkId);
-        if (selected is null && matches.Count > 0 && string.IsNullOrWhiteSpace(query))
-        {
-            selected = matches[0];
-        }
-        WorkList.SelectedItem = selected;
         if (selected is null)
         {
             ShowNoSelection();
+            return;
         }
+
+        _selectedWorkId = selected.Id;
+        if (reloadSelected || _selectedWork?.Id != selected.Id)
+        {
+            await LoadSelectedWorkAsync(selected.Id);
+        }
+    }
+
+    private void CancelPendingSearch()
+    {
+        _searchDebounceCancellation?.Cancel();
+        _searchDebounceCancellation?.Dispose();
+        _searchDebounceCancellation = null;
     }
 
     private void UpdateFilterButtons()
@@ -182,7 +240,16 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         var loadVersion = ++_selectionLoadVersion;
         _selectedWork = null;
         _activeExperience = null;
-        var selectedWork = await _repository.GetWorkAsync(workId);
+        var selectedWorkTask = _repository.GetWorkAsync(workId);
+        var coversTask = _repository.GetCoversAsync(workId);
+        var experiencesTask = _repository.GetExperiencesAsync(workId);
+        await Task.WhenAll(selectedWorkTask, coversTask, experiencesTask);
+        if (loadVersion != _selectionLoadVersion || _selectedWorkId != workId)
+        {
+            return;
+        }
+
+        var selectedWork = await selectedWorkTask;
         if (selectedWork is null)
         {
             if (loadVersion == _selectionLoadVersion && _selectedWorkId == workId)
@@ -192,8 +259,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
 
-        var covers = await _repository.GetCoversAsync(workId);
-        var allExperiences = await _repository.GetExperiencesAsync(workId);
+        var covers = await coversTask;
+        var allExperiences = await experiencesTask;
         var activeExperience = allExperiences.FirstOrDefault(experience => experience.StartedOn is not null && experience.CompletedOn is null);
         IReadOnlyList<ProgressEntry> progressEntries = activeExperience is null
             ? []
@@ -291,7 +358,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             };
             var image = new Image
             {
-                Source = new CoverImageConverter().Convert(cover.FilePath, typeof(ImageSource), null!, System.Globalization.CultureInfo.InvariantCulture) as ImageSource,
+                Source = new CoverImageConverter().Convert(cover.FilePath, typeof(ImageSource), 216, System.Globalization.CultureInfo.InvariantCulture) as ImageSource,
                 Stretch = Stretch.Uniform,
                 Margin = new Thickness(2)
             };
@@ -475,7 +542,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        var progressCount = (await _repository.GetProgressEntriesAsync(experience.Id)).Count;
+        var progressCount = experience.ProgressEntryCount;
         var detail = progressCount == 0 ? "这次体验没有中途记录。" : $"其中的 {progressCount} 条中途记录也会一起删除。";
         var choice = MessageBox.Show(
             $"删除 {experience.DateRangeLabel} 的这次{(_selectedWork.Kind == "book" ? "阅读" : "观看")}？\n\n{detail}\n完成次数和综合评分会自动重新计算。此操作无法撤销。",

@@ -69,13 +69,15 @@ public sealed class LibraryRepository(Database database)
         command.CommandText = """
             SELECT e.id, e.work_id, e.started_on, e.completed_on, e.allure, e.immersion, e.rationality, e.illumination,
                    e.notes, e.created_at, e.updated_at,
-                   (SELECT COUNT(DISTINCT p.logged_on) FROM progress_entries p WHERE p.experience_id = e.id),
-                   COALESCE((SELECT SUM(p.amount) FROM progress_entries p WHERE p.experience_id = e.id AND p.metric = 'duration'), 0),
-                   COALESCE((SELECT SUM(p.amount) FROM progress_entries p WHERE p.experience_id = e.id AND p.metric = 'episodes'), 0),
+                   COUNT(DISTINCT p.logged_on),
+                   COALESCE(SUM(CASE WHEN p.metric = 'duration' THEN p.amount ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN p.metric = 'episodes' THEN p.amount ELSE 0 END), 0),
                    w.total_episodes
             FROM experiences e
             JOIN works w ON w.id = e.work_id
+            LEFT JOIN progress_entries p ON p.experience_id = e.id
             WHERE e.work_id = $workId
+            GROUP BY e.id
             ORDER BY COALESCE(e.completed_on, e.started_on, substr(e.created_at, 1, 10)) DESC, e.created_at DESC;
             """;
         command.Parameters.AddWithValue("$workId", workId);

@@ -113,7 +113,7 @@
                                             BorderBrush="{StaticResource DividerBrush}" BorderThickness="1"
                                             VerticalAlignment="Center" ClipToBounds="True">
                                         <Grid>
-                                            <Image Source="{Binding PrimaryCoverPath, Converter={StaticResource CoverImageConverter}}"
+                                            <Image Source="{Binding PrimaryCoverPath, Converter={StaticResource CoverImageConverter}, ConverterParameter=96}"
                                                    Stretch="Uniform" Margin="2">
                                                 <Image.Style>
                                                     <Style TargetType="Image">

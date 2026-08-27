@@ -141,6 +141,42 @@ public sealed class LibraryRepositoryTests
     }
 
     [Fact]
+    public async Task ExperienceProgressSummary_AggregatesMetricsInOneHistoryDay()
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var work = new MediaWork { Title = "progress-summary-test", Kind = "screen" };
+        await context.Repository.AddWorkAsync(work);
+        var experience = new MediaExperience
+        {
+            WorkId = work.Id,
+            StartedOn = new DateOnly(2026, 8, 24)
+        };
+        await context.Repository.AddExperienceAsync(experience);
+        await context.Repository.AddProgressEntryAsync(new ProgressEntry
+        {
+            ExperienceId = experience.Id,
+            LoggedOn = new DateOnly(2026, 8, 24),
+            Metric = "duration",
+            Amount = 40
+        });
+        await context.Repository.AddProgressEntryAsync(new ProgressEntry
+        {
+            ExperienceId = experience.Id,
+            LoggedOn = new DateOnly(2026, 8, 24),
+            Metric = "episodes",
+            Amount = 2
+        }, totalEpisodes: 12);
+
+        var history = await context.Repository.GetExperiencesAsync(work.Id);
+
+        Assert.Single(history);
+        Assert.Equal(1, history[0].ProgressEntryCount);
+        Assert.Equal(40, history[0].TotalMinutes);
+        Assert.Equal(2, history[0].TotalEpisodes);
+        Assert.Equal(12, history[0].AvailableEpisodes);
+    }
+
+    [Fact]
     public async Task ProgressMetadata_UpdateUsesExperienceOwnership()
     {
         await using var context = await TempDatabase.CreateAsync();
