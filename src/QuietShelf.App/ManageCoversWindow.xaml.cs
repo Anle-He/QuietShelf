@@ -1,6 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Input;
+using System.Windows.Media;
 using Microsoft.Win32;
+using QuietShelf.Converters;
 using QuietShelf.Data;
 using QuietShelf.Models;
 
@@ -29,7 +32,9 @@ public partial class ManageCoversWindow : Window
         {
             Covers.Add(cover);
         }
-        CoverCountText.Text = Covers.Count == 0 ? "可以用多张封面表示不同版本" : $"共 {Covers.Count} 张 · 第一张作为主封面";
+        CoverCountText.Text = Covers.Count == 0
+            ? $"{_work.Title} · 可以用多张封面表示不同版本"
+            : $"{_work.Title} · {Covers.Count} 张封面 · 第一张作为主封面";
         EmptyState.Visibility = Covers.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         CoverScroll.Visibility = Covers.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
     }
@@ -102,6 +107,32 @@ public partial class ManageCoversWindow : Window
         await ExecuteAndReloadAsync(() => _repository.DeleteCoverAsync(_work.Id, cover.Id), "无法删除封面");
     }
 
+    private void PreviewCover_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: WorkCover cover })
+        {
+            return;
+        }
+
+        PreviewImage.Source = new CoverImageConverter().Convert(
+            cover.FilePath,
+            typeof(ImageSource),
+            null!,
+            System.Globalization.CultureInfo.InvariantCulture) as ImageSource;
+        PreviewCaptionText.Text = $"{_work.Title} · {cover.PositionLabel}";
+        PreviewOverlay.Visibility = Visibility.Visible;
+        e.Handled = true;
+    }
+
+    private void ClosePreview_Click(object sender, RoutedEventArgs e)
+    {
+        PreviewOverlay.Visibility = Visibility.Collapsed;
+        PreviewImage.Source = null;
+        e.Handled = true;
+    }
+
+    private void PreviewPanel_Click(object sender, MouseButtonEventArgs e) => e.Handled = true;
+
     private async Task ExecuteAndReloadAsync(Func<Task> action, string errorTitle)
     {
         try
@@ -115,5 +146,4 @@ public partial class ManageCoversWindow : Window
         }
     }
 
-    private void Close_Click(object sender, RoutedEventArgs e) => Close();
 }
