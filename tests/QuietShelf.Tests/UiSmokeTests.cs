@@ -18,6 +18,16 @@ public sealed class UiSmokeTests
             {
                 var application = new QuietShelf.App();
                 application.InitializeComponent();
+                var mainWindow = new MainWindow();
+                Assert.IsAssignableFrom<FrameworkElement>(mainWindow.FindName("ActiveShelfPanel"));
+                Assert.IsAssignableFrom<ItemsControl>(mainWindow.FindName("ActiveShelfList"));
+                Assert.IsAssignableFrom<TextBlock>(mainWindow.FindName("LibraryCountText"));
+                Assert.IsAssignableFrom<ScrollViewer>(mainWindow.FindName("DashboardScroll"));
+                Assert.IsAssignableFrom<ItemsControl>(mainWindow.FindName("DashboardRecentList"));
+                Assert.IsAssignableFrom<TextBlock>(mainWindow.FindName("DashboardWorkCountText"));
+                Assert.IsAssignableFrom<Button>(mainWindow.FindName("HomeButton"));
+                Assert.IsAssignableFrom<FrameworkElement>(mainWindow.FindName("RegularWorksHeader"));
+                Assert.IsAssignableFrom<TextBlock>(mainWindow.FindName("DetailKickerText"));
                 var addWork = new AddWorkWindow();
                 var addExperience = new AddExperienceWindow("ui-test", "book", completing: true);
                 var allureBox = Assert.IsType<ComboBox>(addExperience.FindName("AllureBox"));
@@ -56,6 +66,7 @@ public sealed class UiSmokeTests
                 progress.Close();
                 addExperience.Close();
                 addWork.Close();
+                mainWindow.Close();
                 application.Shutdown();
             }
             catch (Exception exception)

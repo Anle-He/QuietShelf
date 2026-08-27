@@ -10,28 +10,28 @@
                 <ui:ControlsDictionary />
             </ResourceDictionary.MergedDictionaries>
 
-            <SolidColorBrush x:Key="PageBrush" Color="#F1F3F0" />
-            <SolidColorBrush x:Key="LibraryPaneBrush" Color="#F8F9F6" />
-            <SolidColorBrush x:Key="DetailPaneBrush" Color="#F3F5F2" />
-            <SolidColorBrush x:Key="SurfaceBrush" Color="#FEFEFC" />
-            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#EEF3EF" />
-            <SolidColorBrush x:Key="TextBrush" Color="#202522" />
-            <SolidColorBrush x:Key="MutedBrush" Color="#6D766F" />
-            <SolidColorBrush x:Key="MutedStrongBrush" Color="#526159" />
-            <SolidColorBrush x:Key="AccentBrush" Color="#2F654C" />
-            <SolidColorBrush x:Key="AccentSoftBrush" Color="#E2EDE6" />
-            <SolidColorBrush x:Key="AccentLineBrush" Color="#B8CEC0" />
-            <SolidColorBrush x:Key="ActiveSurfaceBrush" Color="#E8F1EB" />
-            <SolidColorBrush x:Key="HeroLineBrush" Color="#D3DED6" />
-            <SolidColorBrush x:Key="TimelineBrush" Color="#CDD9D1" />
-            <SolidColorBrush x:Key="ScoreBrush" Color="#96671F" />
-            <SolidColorBrush x:Key="ScoreSoftBrush" Color="#F5ECD9" />
+            <SolidColorBrush x:Key="PageBrush" Color="#F5F4F0" />
+            <SolidColorBrush x:Key="LibraryPaneBrush" Color="#EFEEE9" />
+            <SolidColorBrush x:Key="DetailPaneBrush" Color="#F7F6F2" />
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#F8F8F4" />
+            <SolidColorBrush x:Key="TextBrush" Color="#232622" />
+            <SolidColorBrush x:Key="MutedBrush" Color="#636A64" />
+            <SolidColorBrush x:Key="MutedStrongBrush" Color="#505852" />
+            <SolidColorBrush x:Key="AccentBrush" Color="#2F5A47" />
+            <SolidColorBrush x:Key="AccentSoftBrush" Color="#E6EEE9" />
+            <SolidColorBrush x:Key="AccentLineBrush" Color="#BFD0C5" />
+            <SolidColorBrush x:Key="ActiveSurfaceBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="HeroLineBrush" Color="#DADDD7" />
+            <SolidColorBrush x:Key="TimelineBrush" Color="#DADDD7" />
+            <SolidColorBrush x:Key="ScoreBrush" Color="#A06A2A" />
+            <SolidColorBrush x:Key="ScoreSoftBrush" Color="#F7F0E5" />
             <SolidColorBrush x:Key="WarningSoftBrush" Color="#F6EEE0" />
             <SolidColorBrush x:Key="DangerSoftBrush" Color="#F8E9E7" />
-            <SolidColorBrush x:Key="DividerBrush" Color="#DDE4DF" />
+            <SolidColorBrush x:Key="DividerBrush" Color="#DADDD7" />
 
-            <DropShadowEffect x:Key="CardShadow" Color="#203629" BlurRadius="14" ShadowDepth="2" Opacity="0.07" />
-            <DropShadowEffect x:Key="HeroShadow" Color="#1E3428" BlurRadius="22" ShadowDepth="4" Opacity="0.10" />
+            <DropShadowEffect x:Key="CardShadow" Color="#273128" BlurRadius="12" ShadowDepth="2" Opacity="0.06" />
+            <DropShadowEffect x:Key="HeroShadow" Color="#273128" BlurRadius="18" ShadowDepth="3" Opacity="0.12" />
 
             <CornerRadius x:Key="CardRadius">12</CornerRadius>
             <Thickness x:Key="PagePadding">28</Thickness>

@@ -6,117 +6,141 @@
                  MinWidth="980" MinHeight="640" WindowStartupLocation="CenterScreen"
                  ExtendsContentIntoTitleBar="True" WindowBackdropType="Mica"
                  WindowCornerPreference="Round" Icon="Assets/app-icon.ico"
-                 FontFamily="Segoe UI Variable Text, Segoe UI, Microsoft YaHei UI"
-                 Foreground="{StaticResource TextBrush}">
+                 FontFamily="Segoe UI Variable Text, Microsoft YaHei UI, Segoe UI"
+                 FontSize="14" Foreground="{StaticResource TextBrush}">
     <ui:FluentWindow.Resources>
         <Style x:Key="QuietIconButton" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
             <Setter Property="Appearance" Value="Transparent" />
-            <Setter Property="Width" Value="38" />
-            <Setter Property="Height" Value="38" />
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
             <Setter Property="Padding" Value="0" />
         </Style>
         <Style x:Key="SectionEyebrow" TargetType="TextBlock">
             <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="DemiBold" />
+            <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
         </Style>
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <DrawingBrush x:Key="DotPatternBrush" TileMode="Tile" Viewport="0,0,16,16" ViewportUnits="Absolute"
+                      Viewbox="0,0,16,16" ViewboxUnits="Absolute">
+            <DrawingBrush.Drawing>
+                <GeometryDrawing Brush="#70FFFFFF">
+                    <GeometryDrawing.Geometry><EllipseGeometry Center="3,3" RadiusX="1.1" RadiusY="1.1" /></GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingBrush.Drawing>
+        </DrawingBrush>
     </ui:FluentWindow.Resources>
 
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
+        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
         <ui:TitleBar Grid.Row="0" Title="QuietShelf · 书影音" Icon="Assets/app-icon.ico" />
 
         <Grid Grid.Row="1" Background="{StaticResource PageBrush}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="340" />
-                <ColumnDefinition Width="1" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="316" /><ColumnDefinition Width="1" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Background="{StaticResource LibraryPaneBrush}">
-                <Grid Margin="22,22,18,24">
+                <Grid Margin="20,22,16,22">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-
                     <Grid>
                         <StackPanel>
-                            <TextBlock Text="我的收藏" FontSize="26" FontWeight="DemiBold" />
-                            <TextBlock Margin="0,4,0,0" Foreground="{StaticResource MutedBrush}" FontSize="12">
-                                <Run Text="书与影，安静地留在这里" />
-                                <Run Text="  ·  " />
-                                <Run Text="{Binding VisibleWorks.Count, Mode=OneWay}" /><Run Text=" 部" />
-                            </TextBlock>
+                            <TextBlock Text="我的收藏" FontSize="22" FontWeight="SemiBold" />
+                            <TextBlock x:Name="LibraryCountText" Margin="0,4,0,0" FontSize="12" Foreground="{StaticResource MutedBrush}" Text="0 部作品" />
                         </StackPanel>
                         <ui:Button HorizontalAlignment="Right" VerticalAlignment="Center" Appearance="Primary"
-                                   Content="添加" Icon="{ui:SymbolIcon Add24}" Click="AddWork_Click"
-                                   Height="38" Padding="15,0" />
+                                   Icon="{ui:SymbolIcon Add24}" ToolTip="添加作品" AutomationProperties.Name="添加作品"
+                                   Click="AddWork_Click" Width="38" Height="38" Padding="0" />
                     </Grid>
+                    <ui:Button x:Name="HomeButton" Grid.Row="1" Content="首页" Icon="{ui:SymbolIcon Home24}"
+                               Appearance="Primary" HorizontalContentAlignment="Left" Margin="0,16,0,0"
+                               Padding="12,7" Click="Home_Click" />
 
-                    <ui:TextBox x:Name="SearchBox" Grid.Row="1" Margin="0,20,0,0" Height="42"
+                    <ui:TextBox x:Name="SearchBox" Grid.Row="2" Margin="0,12,0,0" Height="40"
                                 PlaceholderText="搜索标题、副标题或作者" TextChanged="SearchBox_TextChanged" />
-
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,13,0,15">
-                        <ui:Button x:Name="AllFilterButton" Content="全部" Tag="all" Appearance="Primary" Click="Filter_Click" Padding="15,5" />
-                        <ui:Button x:Name="BookFilterButton" Content="书籍" Tag="book" Appearance="Secondary" Margin="7,0,0,0" Click="Filter_Click" Padding="15,5" />
-                        <ui:Button x:Name="ScreenFilterButton" Content="影视" Tag="screen" Appearance="Secondary" Margin="7,0,0,0" Click="Filter_Click" Padding="15,5" />
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,12,0,0">
+                        <ui:Button x:Name="AllFilterButton" Content="全部" Tag="all" Appearance="Primary" Click="Filter_Click" Padding="13,4" />
+                        <ui:Button x:Name="BookFilterButton" Content="书籍" Tag="book" Appearance="Secondary" Margin="6,0,0,0" Click="Filter_Click" Padding="13,4" />
+                        <ui:Button x:Name="ScreenFilterButton" Content="影视" Tag="screen" Appearance="Secondary" Margin="6,0,0,0" Click="Filter_Click" Padding="13,4" />
                     </StackPanel>
 
-                    <Grid Grid.Row="3">
-                        <Border x:Name="EmptyState" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource DividerBrush}"
-                                BorderThickness="1" CornerRadius="16" Padding="26">
+                    <StackPanel x:Name="ActiveShelfPanel" Grid.Row="4" Margin="0,20,0,0" Visibility="Collapsed">
+                        <Grid Margin="2,0,2,8">
+                            <TextBlock Text="此刻" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource MutedStrongBrush}" />
+                            <TextBlock x:Name="ActiveShelfCountText" HorizontalAlignment="Right" FontSize="11" Foreground="{StaticResource MutedBrush}" />
+                        </Grid>
+                        <ScrollViewer MaxHeight="176" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl x:Name="ActiveShelfList" ItemsSource="{Binding ActiveWorks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,8" Padding="10" Background="{StaticResource SurfaceBrush}"
+                                            BorderBrush="{StaticResource AccentLineBrush}" BorderThickness="1"
+                                            CornerRadius="12" Cursor="Hand" Tag="{Binding}" MouseLeftButtonUp="ActiveWork_Open">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="48" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <Border Width="42" Height="60" CornerRadius="5" Background="{StaticResource AccentSoftBrush}"
+                                                    BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" ClipToBounds="True">
+                                                <Grid>
+                                                    <Image Source="{Binding PrimaryCoverPath, Converter={StaticResource CoverImageConverter}, ConverterParameter=84}" Stretch="UniformToFill">
+                                                        <Image.Style><Style TargetType="Image"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasPrimaryCover}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Image.Style>
+                                                    </Image>
+                                                    <TextBlock Text="{Binding KindGlyph}" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding HasPrimaryCover}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Border>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="2,0,8,0">
+                                                <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding ProgressLabel}" Margin="0,5,0,0" FontSize="11" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding ActivityLabel}" Margin="0,3,0,0" FontSize="10.5" Foreground="{StaticResource MutedBrush}" />
+                                            </StackPanel>
+                                            <ui:Button Grid.Column="2" Content="记" Appearance="Primary" Width="34" Height="34" Padding="0"
+                                                       VerticalAlignment="Center" ToolTip="记一下" Tag="{Binding}" Click="ActiveWork_AddProgress" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+
+                    <Grid x:Name="RegularWorksHeader" Grid.Row="5" Margin="2,14,2,8">
+                        <TextBlock Text="作品" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource MutedStrongBrush}" />
+                        <TextBlock Text="按最近记录" HorizontalAlignment="Right" FontSize="11" Foreground="{StaticResource MutedBrush}" />
+                    </Grid>
+                    <Grid Grid.Row="6">
+                        <Border x:Name="EmptyState" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" CornerRadius="14" Padding="24">
                             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Border Width="54" Height="54" Background="{StaticResource AccentSoftBrush}" CornerRadius="18">
-                                    <ui:SymbolIcon Symbol="Book24" FontSize="24" Foreground="{StaticResource AccentBrush}"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Border Width="48" Height="48" Background="{StaticResource AccentSoftBrush}" CornerRadius="16">
+                                    <ui:SymbolIcon Symbol="Book24" FontSize="22" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
-                                <TextBlock x:Name="EmptyTitle" Text="这里还没有作品" Margin="0,16,0,0"
-                                           FontSize="17" FontWeight="DemiBold" HorizontalAlignment="Center" />
-                                <TextBlock x:Name="EmptyDescription" Text="先加入一本书，或一部想留下来的影视。"
-                                           Margin="0,7,0,17" Foreground="{StaticResource MutedBrush}"
-                                           TextAlignment="Center" TextWrapping="Wrap" />
+                                <TextBlock x:Name="EmptyTitle" Text="这里还没有作品" Margin="0,14,0,0" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                <TextBlock x:Name="EmptyDescription" Text="先加入一本书，或一部想留下来的影视。" Margin="0,7,0,16"
+                                           Foreground="{StaticResource MutedBrush}" TextAlignment="Center" TextWrapping="Wrap" />
                                 <ui:Button Content="添加第一部作品" Appearance="Primary" Click="AddWork_Click" />
                             </StackPanel>
                         </Border>
-
-                        <ListBox x:Name="WorkList" ItemsSource="{Binding VisibleWorks}" Background="Transparent"
-                                 BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                 SelectionChanged="WorkList_SelectionChanged">
+                        <ListBox x:Name="WorkList" ItemsSource="{Binding VisibleWorks}" Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="WorkList_SelectionChanged">
                             <ListBox.ItemContainerStyle>
                                 <Style TargetType="ListBoxItem">
-                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                    <Setter Property="Padding" Value="0" />
-                                    <Setter Property="Margin" Value="0,0,0,8" />
-                                    <Setter Property="Background" Value="Transparent" />
-                                    <Setter Property="BorderThickness" Value="0" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="Padding" Value="0" />
+                                    <Setter Property="Margin" Value="0,0,0,6" /><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" />
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="ListBoxItem">
                                                 <Grid>
-                                                    <Border x:Name="ItemSurface" Padding="12" CornerRadius="12"
-                                                            Background="Transparent" BorderBrush="Transparent" BorderThickness="1">
-                                                        <ContentPresenter />
-                                                    </Border>
-                                                    <Border x:Name="SelectionMark" Width="4" Height="34" CornerRadius="2"
-                                                            Background="{StaticResource AccentBrush}" HorizontalAlignment="Left"
-                                                            VerticalAlignment="Center" Opacity="0" />
+                                                    <Border x:Name="ItemSurface" Padding="10" CornerRadius="11" Background="Transparent" BorderBrush="Transparent" BorderThickness="1"><ContentPresenter /></Border>
+                                                    <Border x:Name="SelectionMark" Width="3" Height="30" CornerRadius="2" Background="{StaticResource AccentBrush}" HorizontalAlignment="Left" VerticalAlignment="Center" Opacity="0" />
                                                 </Grid>
                                                 <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="ItemSurface" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
-                                                    </Trigger>
-                                                    <Trigger Property="IsSelected" Value="True">
-                                                        <Setter TargetName="ItemSurface" Property="Background" Value="{StaticResource AccentSoftBrush}" />
-                                                        <Setter TargetName="ItemSurface" Property="BorderBrush" Value="{StaticResource AccentLineBrush}" />
-                                                        <Setter TargetName="SelectionMark" Property="Opacity" Value="1" />
-                                                    </Trigger>
+                                                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="{StaticResource SurfaceHoverBrush}" /></Trigger>
+                                                    <Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="{StaticResource AccentSoftBrush}" /><Setter TargetName="ItemSurface" Property="BorderBrush" Value="{StaticResource AccentLineBrush}" /><Setter TargetName="SelectionMark" Property="Opacity" Value="1" /></Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
                                         </Setter.Value>
@@ -126,46 +150,24 @@
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="58" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <Border Width="48" Height="68" CornerRadius="7" Background="#E8ECE9"
-                                                BorderBrush="{StaticResource DividerBrush}" BorderThickness="1"
-                                                VerticalAlignment="Center" ClipToBounds="True">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="52" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <Border Width="42" Height="60" CornerRadius="5" Background="{StaticResource AccentSoftBrush}" BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" ClipToBounds="True">
                                             <Grid>
-                                                <Image Source="{Binding PrimaryCoverPath, Converter={StaticResource CoverImageConverter}, ConverterParameter=96}"
-                                                       Stretch="Uniform" Margin="2">
-                                                    <Image.Style>
-                                                        <Style TargetType="Image">
-                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                            <Style.Triggers><DataTrigger Binding="{Binding HasPrimaryCover}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers>
-                                                        </Style>
-                                                    </Image.Style>
+                                                <Image Source="{Binding PrimaryCoverPath, Converter={StaticResource CoverImageConverter}, ConverterParameter=84}" Stretch="UniformToFill">
+                                                    <Image.Style><Style TargetType="Image"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasPrimaryCover}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Image.Style>
                                                 </Image>
-                                                <TextBlock Text="{Binding KindGlyph}" FontWeight="DemiBold" Foreground="{StaticResource AccentBrush}"
-                                                           HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Visibility" Value="Visible" />
-                                                            <Style.Triggers><DataTrigger Binding="{Binding HasPrimaryCover}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
+                                                <TextBlock Text="{Binding KindGlyph}" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding HasPrimaryCover}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
                                                 </TextBlock>
                                             </Grid>
                                         </Border>
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="DemiBold" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Margin="0,5,0,0" FontSize="11.5" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis">
-                                                <Run Text="{Binding StatusLabel, Mode=OneWay}" /><Run Text="  ·  " /><Run Text="{Binding LatestActivityLabel, Mode=OneWay}" />
-                                            </TextBlock>
+                                            <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Margin="0,5,0,0" FontSize="11" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis"><Run Text="{Binding StatusLabel, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding LatestActivityLabel, Mode=OneWay}" /></TextBlock>
                                         </StackPanel>
                                         <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0,0,0">
-                                            <TextBlock Text="{Binding AggregateRankLabel}" FontSize="13" FontWeight="DemiBold"
-                                                       Foreground="{StaticResource ScoreBrush}" HorizontalAlignment="Right" />
-                                            <TextBlock Text="{Binding ExperienceCountLabel}" Margin="0,4,0,0" FontSize="10.5"
-                                                       Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Right" />
+                                            <TextBlock Text="{Binding AggregateRankLabel}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource ScoreBrush}" HorizontalAlignment="Right" />
+                                            <TextBlock Text="{Binding ExperienceCountLabel}" Margin="0,5,0,0" FontSize="10.5" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Right" />
                                         </StackPanel>
                                     </Grid>
                                 </DataTemplate>
@@ -176,139 +178,220 @@
             </Border>
 
             <Border Grid.Column="1" Background="{StaticResource DividerBrush}" />
-
             <Grid Grid.Column="2" Background="{StaticResource DetailPaneBrush}">
-                <StackPanel x:Name="DetailEmpty" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Border Width="68" Height="68" CornerRadius="22" Background="{StaticResource AccentSoftBrush}">
-                        <ui:SymbolIcon Symbol="MoviesAndTv24" FontSize="28" Foreground="{StaticResource AccentBrush}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <TextBlock Text="从一部作品开始" Margin="0,18,0,0" FontSize="21" FontWeight="DemiBold" HorizontalAlignment="Center" />
-                    <TextBlock Text="选择左侧作品，回到某一次阅读或观看。" Margin="0,7,0,0"
-                               Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" />
-                </StackPanel>
-
-                <ScrollViewer x:Name="DetailScroll" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Margin="26,22,26,30">
-                        <Border x:Name="DetailHero" MinHeight="218" CornerRadius="22" Padding="26"
-                                BorderBrush="{StaticResource HeroLineBrush}" BorderThickness="1"
-                                Effect="{StaticResource HeroShadow}">
+                <ScrollViewer x:Name="DashboardScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="36,32,36,36">
+                        <Border x:Name="DashboardHero" Height="246" CornerRadius="24" ClipToBounds="True"
+                                BorderBrush="#3FFFFFFF" BorderThickness="1" Effect="{StaticResource HeroShadow}">
                             <Border.Background>
                                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                    <GradientStop Color="#EDF3EF" Offset="0" />
-                                    <GradientStop Color="#F7F3EB" Offset="1" />
+                                    <GradientStop Color="#14271F" Offset="0" />
+                                    <GradientStop Color="#234A3A" Offset="0.58" />
+                                    <GradientStop Color="#17231F" Offset="1" />
                                 </LinearGradientBrush>
                             </Border.Background>
                             <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="148" />
-                                    <ColumnDefinition Width="24" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
+                                <Canvas IsHitTestVisible="False" ClipToBounds="True">
+                                    <Rectangle Width="1000" Height="246" Fill="{StaticResource DotPatternBrush}" Opacity="0.19" />
+                                    <Ellipse Width="360" Height="360" Canvas.Left="-135" Canvas.Top="-195" Fill="#5C8F78" Opacity="0.56"><Ellipse.Effect><BlurEffect Radius="72" /></Ellipse.Effect></Ellipse>
+                                    <Ellipse Width="300" Height="300" Canvas.Left="550" Canvas.Top="70" Fill="#C1843E" Opacity="0.33"><Ellipse.Effect><BlurEffect Radius="78" /></Ellipse.Effect></Ellipse>
+                                    <Ellipse Width="250" Height="250" Canvas.Left="650" Canvas.Top="-20" Stroke="#38FFFFFF" StrokeThickness="1" />
+                                    <Ellipse Width="190" Height="190" Canvas.Left="680" Canvas.Top="10" Stroke="#4FD8A65D" StrokeThickness="1" StrokeDashArray="3,7" />
+                                    <Path Data="M 490,220 C 610,115 760,90 940,115" Stroke="#45FFFFFF" StrokeThickness="1.2" />
+                                    <Rectangle Width="520" Height="1" Canvas.Left="310" Canvas.Top="40" Fill="#66FFFFFF" RenderTransformOrigin="0.5,0.5"><Rectangle.RenderTransform><RotateTransform Angle="-18" /></Rectangle.RenderTransform></Rectangle>
+                                    <Rectangle Width="460" Height="1" Canvas.Left="360" Canvas.Top="190" Fill="#32FFFFFF" RenderTransformOrigin="0.5,0.5"><Rectangle.RenderTransform><RotateTransform Angle="-18" /></Rectangle.RenderTransform></Rectangle>
+                                </Canvas>
 
-                                <Button x:Name="DetailCoverButton" Width="144" Height="194" Padding="0"
-                                        Background="Transparent" BorderThickness="0" Cursor="Hand"
-                                        VerticalAlignment="Center" ToolTip="管理封面" Click="ManageCovers_Click">
-                                    <Button.Template>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Grid x:Name="DashboardActiveSection" Margin="30,24" Visibility="Collapsed">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="286" /></Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="此刻 · CURRENT" FontSize="11" FontWeight="SemiBold" Foreground="#BCE2CF" />
+                                        <TextBlock Text="{Binding Title}" Margin="0,10,0,0" FontSize="30" FontWeight="SemiBold"
+                                                   Foreground="White" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding ProgressLabel}" Margin="0,9,0,0" FontSize="15" Foreground="#E1EEE7" />
+                                        <TextBlock Text="{Binding ActivityLabel}" Margin="0,5,0,0" FontSize="11" Foreground="#B9CDC2" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                                            <ui:Button Content="记一下" Icon="{ui:SymbolIcon Add24}" Appearance="Primary" Padding="16,7" Tag="{Binding}" Click="ActiveWork_AddProgress" />
+                                            <ui:Button Content="打开作品" Appearance="Secondary" Margin="9,0,0,0" Padding="15,7" Tag="{Binding}" Click="DashboardActive_Open" />
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="150" /><ColumnDefinition Width="112" /></Grid.ColumnDefinitions>
+                                        <Grid>
+                                            <Border Width="112" Height="168" CornerRadius="9" Background="#24FFFFFF" BorderBrush="#42FFFFFF" BorderThickness="1"
+                                                    RenderTransformOrigin="0.5,0.5" Margin="20,0,0,0"><Border.RenderTransform><RotateTransform Angle="8" /></Border.RenderTransform></Border>
+                                            <Border Width="112" Height="168" CornerRadius="9" Background="#E6EEE9" BorderBrush="#66FFFFFF" BorderThickness="1"
+                                                    ClipToBounds="True" Effect="{StaticResource HeroShadow}" RenderTransformOrigin="0.5,0.5">
+                                                <Grid>
+                                                    <Image Source="{Binding PrimaryCoverPath, Converter={StaticResource CoverImageConverter}, ConverterParameter=224}" Stretch="UniformToFill">
+                                                        <Image.Style><Style TargetType="Image"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasPrimaryCover}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Image.Style>
+                                                    </Image>
+                                                    <TextBlock Text="{Binding KindGlyph}" FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding HasPrimaryCover}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
                                             </Border>
-                                        </ControlTemplate>
-                                    </Button.Template>
-                                    <Canvas x:Name="DetailCoverCanvas" Width="140" Height="190" />
-                                </Button>
+                                        </Grid>
 
-                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="0,2,16,2">
-                                    <TextBlock Text="作品档案" Style="{StaticResource SectionEyebrow}" Margin="0,0,0,11" />
-                                    <TextBlock x:Name="DetailTitleText" FontSize="33" FontWeight="DemiBold"
-                                               TextWrapping="Wrap" MaxHeight="88" />
-                                     <TextBlock x:Name="DetailSubtitleText" Margin="0,7,0,0" FontSize="18"
-                                                Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" MaxHeight="54"
-                                                Visibility="Collapsed" />
-                                    <TextBlock x:Name="DetailAuthorText" Margin="0,7,0,0" FontSize="14"
-                                               Foreground="{StaticResource MutedStrongBrush}" TextWrapping="Wrap"
-                                               Visibility="Collapsed" />
-                                    <Border Margin="0,14,0,0" Padding="10,5" CornerRadius="12"
-                                            Background="#88FFFFFF" HorizontalAlignment="Left">
-                                        <TextBlock x:Name="DetailMetaText" FontSize="12" Foreground="{StaticResource MutedStrongBrush}" />
-                                    </Border>
-                                </StackPanel>
+                                        <Grid Grid.Column="1" Width="104" Height="174" VerticalAlignment="Center">
+                                            <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasEpisodeProgress}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Grid.Style>
+                                            <Ellipse Width="112" Height="112" Fill="#54D8A65D" VerticalAlignment="Center"><Ellipse.Effect><BlurEffect Radius="28" /></Ellipse.Effect></Ellipse>
+                                            <Border Width="48" Height="17" CornerRadius="5,5,3,3" BorderBrush="#B8FFFFFF" BorderThickness="2" Background="#24FFFFFF" VerticalAlignment="Top" Margin="0,2,0,0" />
+                                            <Border Width="58" Height="11" CornerRadius="5" BorderBrush="#D0FFFFFF" BorderThickness="2" Background="#2AFFFFFF" VerticalAlignment="Top" Margin="0,14,0,0" />
+                                            <Border Width="88" Height="124" CornerRadius="18,18,24,24" BorderBrush="#C8FFFFFF" BorderThickness="2" Background="#18FFFFFF" VerticalAlignment="Top" Margin="0,24,0,0" ClipToBounds="True">
+                                                <Grid>
+                                                    <Grid.Clip>
+                                                        <RectangleGeometry Rect="0,0,84,120" RadiusX="16" RadiusY="16" />
+                                                    </Grid.Clip>
+                                                    <Border VerticalAlignment="Stretch" RenderTransformOrigin="0.5,1">
+                                                        <Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#F0D8A65D" Offset="0" /><GradientStop Color="#E77A9E78" Offset="0.55" /><GradientStop Color="#E24B806A" Offset="1" /></LinearGradientBrush></Border.Background>
+                                                        <Border.RenderTransform><ScaleTransform ScaleY="{Binding ProgressFraction, Mode=OneWay}" /></Border.RenderTransform>
+                                                    </Border>
+                                                    <Ellipse Width="9" Height="9" Fill="#75FFFFFF" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="17,0,0,20" />
+                                                    <Ellipse Width="5" Height="5" Fill="#92FFFFFF" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,39" />
+                                                    <Ellipse Width="4" Height="4" Fill="#80FFFFFF" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="33,0,0,54" />
+                                                    <TextBlock Text="{Binding ProgressPercentLabel}" FontSize="18" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                            <Border VerticalAlignment="Bottom" HorizontalAlignment="Center" CornerRadius="10" Background="#DC17231F" BorderBrush="#4FFFFFFF" BorderThickness="1" Padding="8,3">
+                                                <TextBlock Text="{Binding EpisodeProgressLabel}" FontSize="10.5" Foreground="#E8F1EC" />
+                                            </Border>
+                                        </Grid>
+                                    </Grid>
+                                </Grid>
 
-                                <StackPanel Grid.Column="3" VerticalAlignment="Bottom" HorizontalAlignment="Right">
-                                    <ui:Button x:Name="PrimaryExperienceButton" Appearance="Primary" Click="PrimaryExperience_Click"
-                                               MinWidth="108" Height="40" Padding="18,0" />
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-                                        <ui:Button Style="{StaticResource QuietIconButton}" Icon="{ui:SymbolIcon Edit24}"
-                                                   ToolTip="编辑作品信息" Click="EditWork_Click" />
-                                        <ui:Button Style="{StaticResource QuietIconButton}" Icon="{ui:SymbolIcon Delete24}"
-                                                   ToolTip="删除作品" Click="DeleteWork_Click" Margin="4,0,0,0" />
-                                    </StackPanel>
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-
-                        <Border Margin="0,14,0,0" Background="{StaticResource SurfaceBrush}"
-                                BorderBrush="{StaticResource DividerBrush}" BorderThickness="1"
-                                CornerRadius="16" Padding="22,16" Effect="{StaticResource CardShadow}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.2*" />
-                                    <ColumnDefinition Width="1" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="1" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock Text="综合评分" FontSize="11" Foreground="{StaticResource MutedBrush}" />
-                                    <TextBlock x:Name="DetailRankText" Margin="0,3,0,0" FontSize="24" FontWeight="DemiBold"
-                                               Foreground="{StaticResource ScoreBrush}" />
-                                </StackPanel>
-                                <Border Grid.Column="1" Width="1" Background="{StaticResource DividerBrush}" Margin="0,2" />
-                                <StackPanel Grid.Column="2" Margin="20,0" VerticalAlignment="Center">
-                                    <TextBlock Text="完成" FontSize="11" Foreground="{StaticResource MutedBrush}" />
-                                    <TextBlock x:Name="DetailCountText" Margin="0,4,0,0" FontSize="16" FontWeight="DemiBold" />
-                                </StackPanel>
-                                <Border Grid.Column="3" Width="1" Background="{StaticResource DividerBrush}" Margin="0,2" />
-                                <StackPanel Grid.Column="4" Margin="20,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock Text="评分样本" FontSize="11" Foreground="{StaticResource MutedBrush}" />
-                                    <TextBlock x:Name="DetailRatingCountText" Margin="0,4,0,0" FontSize="15" FontWeight="DemiBold" />
-                                </StackPanel>
-                            </Grid>
-                        </Border>
-
-                        <Border x:Name="ActiveExperiencePanel" Margin="0,16,0,0" Background="{StaticResource ActiveSurfaceBrush}"
-                                BorderBrush="{StaticResource AccentLineBrush}" BorderThickness="1" CornerRadius="18"
-                                Padding="22" Visibility="Collapsed">
-                            <StackPanel>
-                                <Grid>
-                                    <StackPanel>
-                                        <TextBlock Text="正在进行" Style="{StaticResource SectionEyebrow}" />
-                                        <TextBlock x:Name="ActiveDateText" Margin="0,8,0,0" FontSize="18" FontWeight="DemiBold" />
-                                        <TextBlock x:Name="ActiveSummaryText" Margin="0,5,0,0" Foreground="{StaticResource MutedBrush}" />
-                                    </StackPanel>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <ui:Button Content="放弃本次" Appearance="Transparent" Margin="0,0,8,0" Click="AbandonExperience_Click" />
-                                        <ui:Button Content="记一下" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Click="AddProgress_Click" />
+                                <Grid x:Name="DashboardHeroEmptyContent" Margin="30,24">
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="QUIETSHELF · ARCHIVE" FontSize="11" FontWeight="SemiBold" Foreground="#BCE2CF" />
+                                        <TextBlock Text="给今天留下一部作品" Margin="0,10,0,0" FontSize="30" FontWeight="SemiBold" Foreground="White" />
+                                        <TextBlock Text="阅读、观看和感受，会在这里慢慢形成你的私人档案。" Margin="0,9,0,0" FontSize="14" Foreground="#D5E4DC" />
+                                        <ui:Button Content="添加作品" Icon="{ui:SymbolIcon Add24}" Appearance="Primary" Margin="0,20,0,0" HorizontalAlignment="Left" Padding="16,7" Click="AddWork_Click" />
                                     </StackPanel>
                                 </Grid>
-                                <TextBlock x:Name="ProgressEmpty" Text="今天读了或看了多少，可以随手留在这里。"
-                                           Margin="0,17,0,0" Foreground="{StaticResource MutedBrush}" />
-                                <ItemsControl x:Name="ProgressList" ItemsSource="{Binding ProgressEntries}" Margin="0,14,0,0" Visibility="Collapsed">
+                            </Grid>
+                        </Border>
+
+                        <Border Margin="0,18,0,0" Background="#CFFFFFFF" BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" CornerRadius="14" Padding="20,14">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="1" /><ColumnDefinition Width="*" /><ColumnDefinition Width="1" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Grid Width="24" Height="24" Margin="0,0,8,0"><Ellipse Fill="{StaticResource AccentSoftBrush}" /><ui:SymbolIcon Symbol="Book24" FontSize="13" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /></Grid>
+                                    <TextBlock Text="收藏" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" /><TextBlock x:Name="DashboardWorkCountText" Text="0" Margin="10,0,0,0" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <Border Grid.Column="1" Background="{StaticResource DividerBrush}" />
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Grid Width="24" Height="24" Margin="0,0,8,0"><Ellipse Fill="#F7F0E5" /><ui:SymbolIcon Symbol="MoviesAndTv24" FontSize="13" Foreground="{StaticResource ScoreBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /></Grid>
+                                    <TextBlock Text="此刻" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" /><TextBlock x:Name="DashboardActiveCountText" Text="0" Margin="10,0,0,0" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <Border Grid.Column="3" Background="{StaticResource DividerBrush}" />
+                                <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Grid Width="24" Height="24" Margin="0,0,8,0"><Ellipse Fill="#EEEAF5" /><ui:SymbolIcon Symbol="CheckmarkCircle24" FontSize="13" Foreground="#675B78" HorizontalAlignment="Center" VerticalAlignment="Center" /></Grid>
+                                    <TextBlock Text="完成" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" /><TextBlock x:Name="DashboardExperienceCountText" Text="0" Margin="10,0,0,0" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Grid Margin="2,26,2,12">
+                            <StackPanel Orientation="Horizontal">
+                                <Grid Width="38" Height="38" Margin="0,0,11,0">
+                                    <Border Width="27" Height="27" CornerRadius="8" Background="{StaticResource AccentSoftBrush}" RenderTransformOrigin="0.5,0.5"><Border.RenderTransform><RotateTransform Angle="-10" /></Border.RenderTransform></Border>
+                                    <Ellipse Width="8" Height="8" Fill="{StaticResource ScoreBrush}" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,2,0" />
+                                    <ui:SymbolIcon Symbol="Book24" FontSize="17" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Grid>
+                                <StackPanel><TextBlock Text="最近" Style="{StaticResource SectionEyebrow}" /><TextBlock Text="最近留下的作品" Margin="0,5,0,0" Style="{StaticResource SectionTitle}" /></StackPanel>
+                            </StackPanel>
+                            <TextBlock Text="按最后记录时间" HorizontalAlignment="Right" VerticalAlignment="Bottom" Foreground="{StaticResource MutedBrush}" FontSize="12" />
+                        </Grid>
+                        <Border x:Name="DashboardEmptyState" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" CornerRadius="14" Padding="30" Visibility="Collapsed">
+                            <StackPanel HorizontalAlignment="Center"><TextBlock Text="收藏从第一部作品开始" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" /><TextBlock Text="添加一本书或一部影视，它会出现在这里。" Margin="0,7,0,16" Foreground="{StaticResource MutedBrush}" /><ui:Button Content="添加作品" Appearance="Primary" Click="AddWork_Click" HorizontalAlignment="Center" /></StackPanel>
+                        </Border>
+                        <ItemsControl x:Name="DashboardRecentList" ItemsSource="{Binding DashboardRecentWorks}">
+                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Width="132" Margin="0,0,18,18" Cursor="Hand" Tag="{Binding}" MouseLeftButtonUp="DashboardWork_Open">
+                                        <Grid Width="112" Height="158" HorizontalAlignment="Left">
+                                            <Border Width="100" Height="146" CornerRadius="8" Background="{StaticResource AccentSoftBrush}"
+                                                    BorderBrush="{StaticResource DividerBrush}" BorderThickness="1"
+                                                    HorizontalAlignment="Left" VerticalAlignment="Top" Margin="8,7,0,0"
+                                                    RenderTransformOrigin="0.5,0.5" Opacity="0.5">
+                                                <Border.RenderTransform><RotateTransform Angle="5" /></Border.RenderTransform>
+                                            </Border>
+                                            <Border Width="100" Height="146" CornerRadius="8" Background="{StaticResource AccentSoftBrush}"
+                                                    BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" HorizontalAlignment="Left"
+                                                    VerticalAlignment="Top" ClipToBounds="True" Effect="{StaticResource CardShadow}">
+                                                <Grid>
+                                                    <Image Source="{Binding PrimaryCoverPath, Converter={StaticResource CoverImageConverter}, ConverterParameter=200}" Stretch="UniformToFill"><Image.Style><Style TargetType="Image"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding HasPrimaryCover}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></Image.Style></Image>
+                                                    <TextBlock Text="{Binding KindGlyph}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding HasPrimaryCover}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                                                </Grid>
+                                            </Border>
+                                            <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="#EAFFFFFF" CornerRadius="10" Padding="7,3" BorderBrush="{StaticResource DividerBrush}" BorderThickness="1">
+                                                <TextBlock Text="{Binding AggregateRankLabel}" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource ScoreBrush}" />
+                                            </Border>
+                                        </Grid>
+                                        <TextBlock Text="{Binding Title}" Margin="0,8,0,0" FontSize="13.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding LatestActivityLabel}" Margin="0,4,0,0" FontSize="10.5" Foreground="{StaticResource MutedBrush}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <StackPanel x:Name="DetailEmpty" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Border Width="60" Height="60" CornerRadius="20" Background="{StaticResource AccentSoftBrush}"><ui:SymbolIcon Symbol="MoviesAndTv24" FontSize="25" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border>
+                    <TextBlock Text="从一部作品开始" Margin="0,16,0,0" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="选择左侧作品，回到某一次阅读或观看。" Margin="0,7,0,0" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" />
+                </StackPanel>
+                <ScrollViewer x:Name="DetailScroll" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="32,28,32,32">
+                        <Grid x:Name="DetailHero" MinHeight="218">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="160" /><ColumnDefinition Width="28" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <Button x:Name="DetailCoverButton" Width="156" Height="218" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" VerticalAlignment="Center" ToolTip="管理封面" Click="ManageCovers_Click">
+                                <Button.Template><ControlTemplate TargetType="Button"><Border Background="{TemplateBinding Background}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" /></Border></ControlTemplate></Button.Template>
+                                <Canvas x:Name="DetailCoverCanvas" Width="152" Height="214" />
+                            </Button>
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="0,0,22,0">
+                                <TextBlock x:Name="DetailKickerText" Text="作品档案" Style="{StaticResource SectionEyebrow}" Margin="0,0,0,12" />
+                                <TextBlock x:Name="DetailTitleText" FontSize="28" FontWeight="SemiBold" TextWrapping="Wrap" MaxHeight="76" />
+                                <TextBlock x:Name="DetailSubtitleText" Margin="0,7,0,0" FontSize="17" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" MaxHeight="52" Visibility="Collapsed" />
+                                <TextBlock x:Name="DetailAuthorText" Margin="0,8,0,0" FontSize="14" Foreground="{StaticResource MutedStrongBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
+                                <TextBlock x:Name="DetailMetaText" Margin="0,14,0,0" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="3" VerticalAlignment="Top" HorizontalAlignment="Right">
+                                <ui:Button Content="编辑" Icon="{ui:SymbolIcon Edit24}" Appearance="Secondary" Padding="13,6" Click="EditWork_Click" />
+                                <ui:Button x:Name="PrimaryExperienceButton" Appearance="Primary" Click="PrimaryExperience_Click" MinWidth="104" Height="38" Margin="0,10,0,0" Padding="16,0" />
+                                <ui:Button Style="{StaticResource QuietIconButton}" Icon="{ui:SymbolIcon Delete24}" ToolTip="删除作品" Click="DeleteWork_Click" HorizontalAlignment="Right" Margin="0,8,0,0" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Margin="0,24,0,0" BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,1,0,1" Padding="0,15">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="1.2*" /><ColumnDefinition Width="1" /><ColumnDefinition Width="*" /><ColumnDefinition Width="1" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <StackPanel><TextBlock Text="综合评分" FontSize="11" Foreground="{StaticResource MutedBrush}" /><TextBlock x:Name="DetailRankText" Margin="0,4,0,0" FontSize="22" FontWeight="SemiBold" Foreground="{StaticResource ScoreBrush}" /></StackPanel>
+                                <Border Grid.Column="1" Width="1" Background="{StaticResource DividerBrush}" Margin="0,1" />
+                                <StackPanel Grid.Column="2" Margin="20,0" VerticalAlignment="Center"><TextBlock Text="完成" FontSize="11" Foreground="{StaticResource MutedBrush}" /><TextBlock x:Name="DetailCountText" Margin="0,4,0,0" FontSize="16" FontWeight="SemiBold" /></StackPanel>
+                                <Border Grid.Column="3" Width="1" Background="{StaticResource DividerBrush}" Margin="0,1" />
+                                <StackPanel Grid.Column="4" Margin="20,0,0,0" VerticalAlignment="Center"><TextBlock Text="评分样本" FontSize="11" Foreground="{StaticResource MutedBrush}" /><TextBlock x:Name="DetailRatingCountText" Margin="0,4,0,0" FontSize="15" FontWeight="SemiBold" /></StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <Border x:Name="ActiveExperiencePanel" Margin="0,18,0,0" Background="{StaticResource ActiveSurfaceBrush}" BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" CornerRadius="14" Padding="20" Visibility="Collapsed">
+                            <StackPanel>
+                                <Grid>
+                                    <StackPanel><TextBlock Text="正在进行" Style="{StaticResource SectionEyebrow}" /><TextBlock x:Name="ActiveDateText" Margin="0,7,0,0" FontSize="17" FontWeight="SemiBold" /><TextBlock x:Name="ActiveSummaryText" Margin="0,5,0,0" Foreground="{StaticResource MutedBrush}" /></StackPanel>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><ui:Button Content="放弃本次" Appearance="Transparent" Margin="0,0,8,0" Click="AbandonExperience_Click" /><ui:Button Content="记一下" Appearance="Primary" Icon="{ui:SymbolIcon Add24}" Click="AddProgress_Click" /></StackPanel>
+                                </Grid>
+                                <TextBlock x:Name="ProgressEmpty" Text="今天读了或看了多少，可以随手留在这里。" Margin="0,16,0,0" Foreground="{StaticResource MutedBrush}" />
+                                <ItemsControl x:Name="ProgressList" ItemsSource="{Binding ProgressEntries}" Margin="0,13,0,0" Visibility="Collapsed">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border BorderBrush="{StaticResource AccentLineBrush}" BorderThickness="0,1,0,0" Padding="0,12,0,3">
+                                            <Border BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,1,0,0" Padding="0,11,0,2">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="116"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                                    <TextBlock Text="{Binding LoggedOn, StringFormat={}{0:yyyy-MM-dd}}" Foreground="{StaticResource MutedBrush}" />
-                                                    <TextBlock Grid.Column="1" Text="{Binding AmountLabel}" FontWeight="DemiBold" />
-                                                    <TextBlock Grid.Column="2" Text="{Binding NotesLabel}" TextTrimming="CharacterEllipsis" Foreground="{StaticResource MutedBrush}" />
-                                                    <StackPanel Grid.Column="3" Orientation="Horizontal">
-                                                        <ui:Button Tag="{Binding}" Style="{StaticResource QuietIconButton}" Icon="{ui:SymbolIcon Edit24}" ToolTip="编辑" Click="EditProgress_Click" />
-                                                        <ui:Button Tag="{Binding}" Style="{StaticResource QuietIconButton}" Icon="{ui:SymbolIcon Delete24}" ToolTip="删除" Click="DeleteProgress_Click" />
-                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding LoggedOn, StringFormat={}{0:yyyy-MM-dd}}" Foreground="{StaticResource MutedBrush}" /><TextBlock Grid.Column="1" Text="{Binding AmountLabel}" FontWeight="SemiBold" /><TextBlock Grid.Column="2" Text="{Binding NotesLabel}" TextTrimming="CharacterEllipsis" Foreground="{StaticResource MutedBrush}" />
+                                                    <StackPanel Grid.Column="3" Orientation="Horizontal"><ui:Button Tag="{Binding}" Style="{StaticResource QuietIconButton}" Icon="{ui:SymbolIcon Edit24}" ToolTip="编辑" Click="EditProgress_Click" /><ui:Button Tag="{Binding}" Style="{StaticResource QuietIconButton}" Icon="{ui:SymbolIcon Delete24}" ToolTip="删除" Click="DeleteProgress_Click" /></StackPanel>
                                                 </Grid>
                                             </Border>
                                         </DataTemplate>
@@ -317,68 +400,24 @@
                             </StackPanel>
                         </Border>
 
-                        <Grid Margin="2,28,2,13">
-                            <StackPanel>
-                                <TextBlock Text="个人历程" Style="{StaticResource SectionEyebrow}" />
-                                <TextBlock Text="历次完成" Margin="0,5,0,0" FontSize="22" FontWeight="DemiBold" />
-                            </StackPanel>
-                            <TextBlock x:Name="HistoryCaptionText" HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                       Margin="0,0,2,2" Foreground="{StaticResource MutedBrush}" />
+                        <Grid Margin="2,26,2,12">
+                            <StackPanel><TextBlock Text="个人历程" Style="{StaticResource SectionEyebrow}" /><TextBlock Text="历次完成" Margin="0,5,0,0" Style="{StaticResource SectionTitle}" /></StackPanel>
+                            <TextBlock x:Name="HistoryCaptionText" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,1" Foreground="{StaticResource MutedBrush}" />
                         </Grid>
-                        <Border x:Name="HistoryEmpty" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource DividerBrush}"
-                                BorderThickness="1" CornerRadius="16" Padding="28">
-                            <StackPanel HorizontalAlignment="Center">
-                                <Border Width="34" Height="34" CornerRadius="17" Background="{StaticResource AccentSoftBrush}" HorizontalAlignment="Center">
-                                    <Border Width="10" Height="10" CornerRadius="5" BorderBrush="{StaticResource AccentBrush}"
-                                            BorderThickness="3" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
-                                <TextBlock Text="完成一次后，日期、总结和评分会留在这里。" Margin="0,9,0,0"
-                                           HorizontalAlignment="Center" Foreground="{StaticResource MutedBrush}" />
-                            </StackPanel>
+                        <Border x:Name="HistoryEmpty" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" CornerRadius="14" Padding="26">
+                            <StackPanel HorizontalAlignment="Center"><Border Width="30" Height="30" CornerRadius="15" Background="{StaticResource AccentSoftBrush}" HorizontalAlignment="Center"><Border Width="9" Height="9" CornerRadius="5" BorderBrush="{StaticResource AccentBrush}" BorderThickness="3" HorizontalAlignment="Center" VerticalAlignment="Center" /></Border><TextBlock Text="完成一次后，日期、总结和评分会留在这里。" Margin="0,9,0,0" HorizontalAlignment="Center" Foreground="{StaticResource MutedBrush}" /></StackPanel>
                         </Border>
                         <ItemsControl x:Name="HistoryList" ItemsSource="{Binding CompletedExperiences}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Margin="0,0,0,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="32" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
+                                    <Border Margin="0,0,0,10" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" CornerRadius="14" Padding="18">
                                         <Grid>
-                                            <Border Width="2" Background="{StaticResource TimelineBrush}" HorizontalAlignment="Center" Margin="0,15,0,0" />
-                                            <Border Width="12" Height="12" CornerRadius="6" Background="{StaticResource DetailPaneBrush}"
-                                                    BorderBrush="{StaticResource AccentBrush}" BorderThickness="3"
-                                                    HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,24,0,0" />
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="160" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <StackPanel><TextBlock Text="{Binding DateRangeLabel}" FontSize="14" FontWeight="SemiBold" /><TextBlock Text="{Binding ProgressSummaryLabel}" Margin="0,6,14,0" FontSize="11" Foreground="{StaticResource MutedBrush}" /></StackPanel>
+                                            <StackPanel Grid.Column="1"><TextBlock Text="{Binding ScoresLabel}" FontSize="12" Foreground="{StaticResource MutedBrush}" /><TextBlock Text="{Binding NotesLabel}" Margin="0,7,18,0" TextWrapping="Wrap" MaxHeight="52" /></StackPanel>
+                                            <StackPanel Grid.Column="2" HorizontalAlignment="Right"><TextBlock Text="{Binding RankLabel}" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="{StaticResource ScoreBrush}" /><StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="8,7,0,0"><ui:Button Tag="{Binding}" Style="{StaticResource QuietIconButton}" Icon="{ui:SymbolIcon Edit24}" ToolTip="编辑" Click="EditExperience_Click" /><ui:Button Tag="{Binding}" Style="{StaticResource QuietIconButton}" Icon="{ui:SymbolIcon Delete24}" ToolTip="删除" Click="DeleteExperience_Click" /></StackPanel></StackPanel>
                                         </Grid>
-                                        <Border Grid.Column="1" Background="{StaticResource SurfaceBrush}"
-                                                BorderBrush="{StaticResource DividerBrush}" BorderThickness="1"
-                                                CornerRadius="16" Padding="20" Effect="{StaticResource CardShadow}">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="170" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel>
-                                                    <TextBlock Text="{Binding DateRangeLabel}" FontSize="15" FontWeight="DemiBold" />
-                                                    <TextBlock Text="{Binding ProgressSummaryLabel}" Margin="0,6,14,0" FontSize="11.5" Foreground="{StaticResource MutedBrush}" />
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="1">
-                                                    <TextBlock Text="{Binding ScoresLabel}" FontSize="12" Foreground="{StaticResource MutedBrush}" />
-                                                    <TextBlock Text="{Binding NotesLabel}" Margin="0,7,18,0" TextWrapping="Wrap" MaxHeight="52" />
-                                                </StackPanel>
-                                                <StackPanel Grid.Column="2" HorizontalAlignment="Right">
-                                                    <Border Background="{StaticResource ScoreSoftBrush}" CornerRadius="10" Padding="9,5">
-                                                        <TextBlock Text="{Binding RankLabel}" HorizontalAlignment="Right" FontWeight="DemiBold" Foreground="{StaticResource ScoreBrush}" />
-                                                    </Border>
-                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="8,7,0,0">
-                                                        <ui:Button Tag="{Binding}" Style="{StaticResource QuietIconButton}" Icon="{ui:SymbolIcon Edit24}" ToolTip="编辑" Click="EditExperience_Click" />
-                                                        <ui:Button Tag="{Binding}" Style="{StaticResource QuietIconButton}" Icon="{ui:SymbolIcon Delete24}" ToolTip="删除" Click="DeleteExperience_Click" />
-                                                    </StackPanel>
-                                                </StackPanel>
-                                            </Grid>
-                                        </Border>
-                                    </Grid>
+                                    </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
