@@ -13,6 +13,8 @@
 
 ## 构建发布产物
 
+正式打标签前，可以从 GitHub Actions 手动运行 `Release artifacts` 工作流。它会从所选分支生成候选 ZIP、安装包和校验文件，用于验证完整发布路径，但不会创建标签或 Release。
+
 在原始电脑上创建与项目版本完全一致的标签，例如：
 
 ```powershell

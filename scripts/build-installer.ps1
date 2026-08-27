@@ -27,7 +27,7 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
 if ([string]::IsNullOrWhiteSpace($NumericVersion)) {
     $NumericVersion = Get-ProjectProperty "FileVersion"
 }
-if ($Version -notmatch '^[0-9A-Za-z][0-9A-Za-z.-]*$') {
+if ($Version -notmatch '^[0-9A-Za-z][0-9A-Za-z.+-]*$') {
     throw "Version '$Version' is not safe for an artifact file name."
 }
 if ($NumericVersion -notmatch '^\d+\.\d+\.\d+\.\d+$') {

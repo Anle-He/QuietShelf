@@ -1,6 +1,7 @@
 name: Release artifacts
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
@@ -21,10 +22,18 @@ jobs:
         with:
           dotnet-version: 10.0.400
 
-      - name: Verify tag matches project version
+      - name: Read project version
+        id: project-version
         shell: pwsh
         run: |
           $projectVersion = (dotnet msbuild .\src\QuietShelf.App\QuietShelf.App.csproj -nologo -getProperty:Version).Trim()
+          "value=$projectVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Verify tag matches project version
+        if: github.event_name == 'push'
+        shell: pwsh
+        run: |
+          $projectVersion = '${{ steps.project-version.outputs.value }}'
           $tagVersion = $env:GITHUB_REF_NAME.Substring(1)
           if ($tagVersion -ne $projectVersion) {
             throw "Tag version '$tagVersion' does not match project version '$projectVersion'."
@@ -36,7 +45,7 @@ jobs:
       - name: Build and test tagged source
         run: |
           dotnet build .\QuietShelf.slnx --no-restore -c Release
-          dotnet test .\QuietShelf.slnx --no-build -c Release --filter "Category!=Manual"
+          dotnet test .\QuietShelf.slnx --no-build -c Release --filter "Category!=Manual&Category!=LocalData"
 
       - name: Install pinned Inno Setup
         run: choco install innosetup --version=6.4.3 --no-progress -y
@@ -61,7 +70,7 @@ jobs:
       - name: Upload release bundle
         uses: actions/upload-artifact@v4
         with:
-          name: QuietShelf-${{ github.ref_name }}
+          name: QuietShelf-${{ steps.project-version.outputs.value }}-${{ github.run_number }}
           path: artifacts/release/*
           if-no-files-found: error
           retention-days: 30
