@@ -19,10 +19,8 @@ public sealed class MediaExperience
     public int? AvailableEpisodes { get; init; }
 
     public bool HasCompleteRating => Allure is not null && Immersion is not null && Rationality is not null && Illumination is not null;
-    public double? Rank => HasCompleteRating
-        ? Math.Round((Allure!.Value * 1.5 + Immersion!.Value + Rationality!.Value + Illumination!.Value) / 5, 1, MidpointRounding.AwayFromZero)
-        : null;
-    public string RankLabel => Rank is null ? "评分未完成" : $"{Rank:0.0} / 3.9";
+    public double? Rank => RatingScale.Calculate(Allure, Immersion, Rationality, Illumination);
+    public string RankLabel => Rank is null ? "评分未完成" : $"{Rank:0.0} / {RatingScale.RankMaximum:0.0}";
     public string DateRangeLabel => (StartedOn, CompletedOn) switch
     {
         ({ } started, { } completed) when started == completed => started.ToString("yyyy-MM-dd"),

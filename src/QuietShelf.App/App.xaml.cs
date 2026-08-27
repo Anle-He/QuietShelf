@@ -138,7 +138,7 @@ public partial class App : Application
                         WorkId = work.Id,
                         StartedOn = new DateOnly(2026, 8, 5),
                         CompletedOn = new DateOnly(2026, 8, 10),
-                        Allure = 4, Immersion = 5, Rationality = 4, Illumination = 4
+                        Allure = 3, Immersion = 5, Rationality = 5, Illumination = 5
                     });
                     var aggregate = await repository.GetWorkAsync(work.Id);
                     var history = await repository.GetExperiencesAsync(work.Id);

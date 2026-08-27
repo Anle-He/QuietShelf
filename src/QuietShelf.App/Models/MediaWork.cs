@@ -26,7 +26,9 @@ public sealed class MediaWork
         "completed" => Kind == "book" ? "已读" : "已看",
         _ => "未设置状态"
     };
-    public string AggregateRankLabel => AggregateRank is null ? "暂无评分" : $"{AggregateRank:0.0} / 3.9";
+    public string AggregateRankLabel => AggregateRank is null
+        ? "暂无评分"
+        : $"{AggregateRank:0.0} / {RatingScale.RankMaximum:0.0}";
     public string ExperienceCountLabel => Kind == "book" ? $"阅读 {ExperienceCount} 次" : $"观看 {ExperienceCount} 次";
     public string RatingCountLabel => RatedExperienceCount == 0 ? "尚无完整评分" : $"来自 {RatedExperienceCount} 次评分";
     public string LatestActivityLabel => LatestActivityOn is null ? "尚未记录" : $"最近 {LatestActivityOn:yyyy-MM-dd}";

@@ -14,9 +14,8 @@ public sealed class LibraryRepository(Database database)
                SUM(CASE WHEN e.completed_on IS NOT NULL AND e.allure IS NOT NULL AND e.immersion IS NOT NULL
                              AND e.rationality IS NOT NULL AND e.illumination IS NOT NULL
                         THEN 1 ELSE 0 END) AS rated_count,
-               ROUND(AVG(CASE WHEN e.completed_on IS NOT NULL AND e.allure IS NOT NULL AND e.immersion IS NOT NULL
-                                   AND e.rationality IS NOT NULL AND e.illumination IS NOT NULL
-                              THEN (e.allure * 1.5 + e.immersion + e.rationality + e.illumination) / 5.0 END), 1) AS aggregate_rank,
+               ROUND(AVG(CASE WHEN e.completed_on IS NOT NULL
+                              THEN calculate_rank(e.allure, e.immersion, e.rationality, e.illumination) END), 1) AS aggregate_rank,
                MAX(COALESCE(
                    (SELECT MAX(p.logged_on) FROM progress_entries p WHERE p.experience_id = e.id),
                    e.completed_on, e.started_on, substr(e.created_at, 1, 10))) AS latest_activity,
@@ -399,6 +398,7 @@ public sealed class LibraryRepository(Database database)
 
     public async Task AddExperienceAsync(MediaExperience experience)
     {
+        RatingScale.Validate(experience);
         await using var connection = await OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
         var insert = connection.CreateCommand();
@@ -434,6 +434,7 @@ public sealed class LibraryRepository(Database database)
 
     public async Task UpdateExperienceAsync(MediaExperience experience)
     {
+        RatingScale.Validate(experience);
         await using var connection = await OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
         var command = connection.CreateCommand();
@@ -581,6 +582,9 @@ public sealed class LibraryRepository(Database database)
     {
         var connection = new SqliteConnection(database.ConnectionString);
         await connection.OpenAsync();
+        connection.CreateFunction<int?, int?, int?, int?, double?>(
+            "calculate_rank",
+            RatingScale.Calculate);
         var pragma = connection.CreateCommand();
         pragma.CommandText = "PRAGMA foreign_keys = ON;";
         await pragma.ExecuteNonQueryAsync();

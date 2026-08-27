@@ -27,9 +27,10 @@ public partial class AddExperienceWindow : Window
             : completing ? "完成后可以留下本次评分与总结。" : "先记下开始日期，中途可以随时补记进度。";
         StartDateLabel.Text = kind == "book" ? "开始阅读" : "开始观看";
         EndDateLabel.Text = kind == "book" ? "完成阅读" : "结束观看";
-        foreach (var box in new[] { AllureBox, ImmersionBox, RationalityBox, IlluminationBox })
+        PopulateRatingBox(AllureBox, RatingScale.AllureMaximum);
+        foreach (var box in new[] { ImmersionBox, RationalityBox, IlluminationBox })
         {
-            PopulateRatingBox(box);
+            PopulateRatingBox(box, RatingScale.DimensionMaximum);
         }
         StartedOnPicker.SelectedDate = existing?.StartedOn?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today;
         CompletedOnPicker.SelectedDate = completing
@@ -102,14 +103,14 @@ public partial class AddExperienceWindow : Window
             RankPreview.Text = values.All(value => value is null) ? "未评分" : "评分未完成";
             return;
         }
-        var rank = Math.Round((values[0]!.Value * 1.5 + values[1]!.Value + values[2]!.Value + values[3]!.Value) / 5, 1, MidpointRounding.AwayFromZero);
-        RankPreview.Text = $"{rank:0.0} / 3.9";
+        var rank = RatingScale.Calculate(values[0], values[1], values[2], values[3]);
+        RankPreview.Text = $"{rank:0.0} / {RatingScale.RankMaximum:0.0}";
     }
 
-    private static void PopulateRatingBox(ComboBox box)
+    private static void PopulateRatingBox(ComboBox box, int maximum)
     {
         box.Items.Add(new ComboBoxItem { Content = "不设置", Tag = string.Empty });
-        for (var score = 1; score <= 5; score++)
+        for (var score = RatingScale.Minimum; score <= maximum; score++)
         {
             box.Items.Add(new ComboBoxItem { Content = score.ToString(), Tag = score.ToString() });
         }
