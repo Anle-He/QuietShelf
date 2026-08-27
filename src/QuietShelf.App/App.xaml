@@ -10,15 +10,28 @@
                 <ui:ControlsDictionary />
             </ResourceDictionary.MergedDictionaries>
 
-            <SolidColorBrush x:Key="PageBrush" Color="#F5F7F5" />
-            <SolidColorBrush x:Key="SurfaceBrush" Color="#FCFDFC" />
+            <SolidColorBrush x:Key="PageBrush" Color="#F1F3F0" />
+            <SolidColorBrush x:Key="LibraryPaneBrush" Color="#F8F9F6" />
+            <SolidColorBrush x:Key="DetailPaneBrush" Color="#F3F5F2" />
+            <SolidColorBrush x:Key="SurfaceBrush" Color="#FEFEFC" />
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#EEF3EF" />
             <SolidColorBrush x:Key="TextBrush" Color="#202522" />
-            <SolidColorBrush x:Key="MutedBrush" Color="#68716B" />
-            <SolidColorBrush x:Key="AccentBrush" Color="#35664F" />
-            <SolidColorBrush x:Key="AccentSoftBrush" Color="#E5EFE9" />
+            <SolidColorBrush x:Key="MutedBrush" Color="#6D766F" />
+            <SolidColorBrush x:Key="MutedStrongBrush" Color="#526159" />
+            <SolidColorBrush x:Key="AccentBrush" Color="#2F654C" />
+            <SolidColorBrush x:Key="AccentSoftBrush" Color="#E2EDE6" />
+            <SolidColorBrush x:Key="AccentLineBrush" Color="#B8CEC0" />
+            <SolidColorBrush x:Key="ActiveSurfaceBrush" Color="#E8F1EB" />
+            <SolidColorBrush x:Key="HeroLineBrush" Color="#D3DED6" />
+            <SolidColorBrush x:Key="TimelineBrush" Color="#CDD9D1" />
+            <SolidColorBrush x:Key="ScoreBrush" Color="#96671F" />
+            <SolidColorBrush x:Key="ScoreSoftBrush" Color="#F5ECD9" />
             <SolidColorBrush x:Key="WarningSoftBrush" Color="#F6EEE0" />
             <SolidColorBrush x:Key="DangerSoftBrush" Color="#F8E9E7" />
-            <SolidColorBrush x:Key="DividerBrush" Color="#E2E7E3" />
+            <SolidColorBrush x:Key="DividerBrush" Color="#DDE4DF" />
+
+            <DropShadowEffect x:Key="CardShadow" Color="#203629" BlurRadius="14" ShadowDepth="2" Opacity="0.07" />
+            <DropShadowEffect x:Key="HeroShadow" Color="#1E3428" BlurRadius="22" ShadowDepth="4" Opacity="0.10" />
 
             <CornerRadius x:Key="CardRadius">12</CornerRadius>
             <Thickness x:Key="PagePadding">28</Thickness>

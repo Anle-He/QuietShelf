@@ -5,7 +5,7 @@ namespace QuietShelf.Data;
 
 public sealed class Database
 {
-    private const int CurrentSchemaVersion = 1;
+    private const int CurrentSchemaVersion = 2;
     private readonly bool _databaseExisted;
 
     public Database(string? databasePath = null)
@@ -145,56 +145,73 @@ public sealed class Database
             """;
         await command.ExecuteNonQueryAsync();
 
-        await EnsureLegacyColumnAsync(connection, "allure");
-        await EnsureLegacyColumnAsync(connection, "immersion");
-        await EnsureLegacyColumnAsync(connection, "rationality");
-        await EnsureLegacyColumnAsync(connection, "illumination");
-        await EnsureExperienceColumnAsync(connection, "started_on");
-        await EnsureWorkColumnAsync(connection, "subtitle");
-        await EnsureWorkColumnAsync(connection, "total_episodes");
+        var legacyColumns = await GetColumnNamesAsync(connection, "media_entries");
+        var experienceColumns = await GetColumnNamesAsync(connection, "experiences");
+        var workColumns = await GetColumnNamesAsync(connection, "works");
+        await EnsureLegacyColumnAsync(connection, legacyColumns, "allure");
+        await EnsureLegacyColumnAsync(connection, legacyColumns, "immersion");
+        await EnsureLegacyColumnAsync(connection, legacyColumns, "rationality");
+        await EnsureLegacyColumnAsync(connection, legacyColumns, "illumination");
+        await EnsureExperienceColumnAsync(connection, experienceColumns, "started_on");
+        await EnsureWorkColumnAsync(connection, workColumns, "subtitle");
+        await EnsureWorkColumnAsync(connection, workColumns, "total_episodes");
 
         var activeIndex = connection.CreateCommand();
         activeIndex.CommandText = "CREATE UNIQUE INDEX IF NOT EXISTS ux_experiences_one_active ON experiences (work_id) WHERE started_on IS NOT NULL AND completed_on IS NULL;";
         await activeIndex.ExecuteNonQueryAsync();
 
-        var migrate = connection.CreateCommand();
-        migrate.CommandText = """
-            INSERT OR IGNORE INTO works (id, title, kind, status, created_at, updated_at)
-            SELECT id, title, kind, status, created_at, updated_at FROM media_entries;
-
-            INSERT OR IGNORE INTO experiences
-                (id, work_id, started_on, completed_on, allure, immersion, rationality, illumination, notes, created_at, updated_at)
-            SELECT id || '-legacy-1', id, NULL, completed_on,
-                   CASE WHEN allure > 3 THEN 3 ELSE allure END,
-                   immersion, rationality, illumination, notes, created_at, updated_at
-            FROM media_entries;
-            """;
-        await migrate.ExecuteNonQueryAsync();
-
-        if (schemaVersion < CurrentSchemaVersion)
+        if (schemaVersion < 1)
         {
+            var migrate = connection.CreateCommand();
+            migrate.CommandText = """
+                INSERT OR IGNORE INTO works (id, title, kind, status, created_at, updated_at)
+                SELECT id, title, kind, status, created_at, updated_at FROM media_entries;
+
+                INSERT OR IGNORE INTO experiences
+                    (id, work_id, started_on, completed_on, allure, immersion, rationality, illumination, notes, created_at, updated_at)
+                SELECT id || '-legacy-1', id,
+                       CASE WHEN status = 'in_progress' THEN substr(created_at, 1, 10) ELSE NULL END,
+                       completed_on,
+                       CASE WHEN allure > 3 THEN 3 ELSE allure END,
+                       immersion, rationality, illumination, notes, created_at, updated_at
+                FROM media_entries;
+                """;
+            await migrate.ExecuteNonQueryAsync();
             await MigrateToVersion1Async(connection);
+        }
+
+        if (schemaVersion < 2)
+        {
+            await MigrateToVersion2Async(connection);
         }
     }
 
-    private static async Task EnsureLegacyColumnAsync(SqliteConnection connection, string columnName)
+    private static async Task<HashSet<string>> GetColumnNamesAsync(SqliteConnection connection, string tableName)
     {
-        var info = connection.CreateCommand();
-        info.CommandText = "PRAGMA table_info(media_entries);";
-        var exists = false;
-        await using (var reader = await info.ExecuteReaderAsync())
+        var pragma = tableName switch
         {
-            while (await reader.ReadAsync())
-            {
-                if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
-                {
-                    exists = true;
-                    break;
-                }
-            }
+            "media_entries" => "PRAGMA table_info(media_entries);",
+            "experiences" => "PRAGMA table_info(experiences);",
+            "works" => "PRAGMA table_info(works);",
+            _ => throw new InvalidOperationException("Unsupported database table inspection.")
+        };
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var info = connection.CreateCommand();
+        info.CommandText = pragma;
+        await using var reader = await info.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            columns.Add(reader.GetString(1));
         }
+        return columns;
+    }
 
-        if (exists)
+    private static async Task EnsureLegacyColumnAsync(
+        SqliteConnection connection,
+        ISet<string> columns,
+        string columnName)
+    {
+        if (columns.Contains(columnName))
         {
             return;
         }
@@ -212,6 +229,7 @@ public sealed class Database
         var alter = connection.CreateCommand();
         alter.CommandText = $"ALTER TABLE media_entries ADD COLUMN {columnName} INTEGER NULL CHECK ({columnName} IS NULL OR {columnName} BETWEEN 1 AND {maximum});";
         await alter.ExecuteNonQueryAsync();
+        columns.Add(columnName);
     }
 
     private void CreateMigrationBackup(SqliteConnection source)
@@ -252,6 +270,56 @@ public sealed class Database
         command.Parameters.AddWithValue("$tableName", tableName);
         var schema = await command.ExecuteScalarAsync() as string;
         return schema?.Contains("allure BETWEEN 1 AND 5", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private static async Task RepairLegacyActiveExperiencesAsync(SqliteConnection connection)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE experiences AS legacy
+            SET started_on = substr(legacy.created_at, 1, 10)
+            WHERE legacy.id = legacy.work_id || '-legacy-1'
+              AND legacy.started_on IS NULL
+              AND legacy.completed_on IS NULL
+              AND EXISTS (
+                  SELECT 1 FROM works AS work
+                  WHERE work.id = legacy.work_id AND work.status = 'in_progress'
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM experiences AS active
+                  WHERE active.work_id = legacy.work_id
+                    AND active.id <> legacy.id
+                    AND active.started_on IS NOT NULL
+                    AND active.completed_on IS NULL
+              );
+            """;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task MigrateToVersion2Async(SqliteConnection connection)
+    {
+        var begin = connection.CreateCommand();
+        begin.CommandText = "BEGIN IMMEDIATE;";
+        await begin.ExecuteNonQueryAsync();
+        try
+        {
+            await RepairLegacyActiveExperiencesAsync(connection);
+
+            var updateVersion = connection.CreateCommand();
+            updateVersion.CommandText = "PRAGMA user_version = 2;";
+            await updateVersion.ExecuteNonQueryAsync();
+
+            var commit = connection.CreateCommand();
+            commit.CommandText = "COMMIT;";
+            await commit.ExecuteNonQueryAsync();
+        }
+        catch
+        {
+            var rollback = connection.CreateCommand();
+            rollback.CommandText = "ROLLBACK;";
+            await rollback.ExecuteNonQueryAsync();
+            throw;
+        }
     }
 
     private static async Task MigrateToVersion1Async(SqliteConnection connection)
@@ -376,44 +444,34 @@ public sealed class Database
         await command.ExecuteNonQueryAsync();
     }
 
-    private static async Task EnsureExperienceColumnAsync(SqliteConnection connection, string columnName)
+    private static async Task EnsureExperienceColumnAsync(
+        SqliteConnection connection,
+        ISet<string> columns,
+        string columnName)
     {
-        var info = connection.CreateCommand();
-        info.CommandText = "PRAGMA table_info(experiences);";
-        await using (var reader = await info.ExecuteReaderAsync())
-        {
-            while (await reader.ReadAsync())
-            {
-                if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return;
-                }
-            }
-        }
-
         if (!string.Equals(columnName, "started_on", StringComparison.Ordinal))
         {
             throw new InvalidOperationException("Unsupported experience column migration.");
+        }
+        if (columns.Contains(columnName))
+        {
+            return;
         }
 
         var alter = connection.CreateCommand();
         alter.CommandText = "ALTER TABLE experiences ADD COLUMN started_on TEXT NULL;";
         await alter.ExecuteNonQueryAsync();
+        columns.Add(columnName);
     }
 
-    private static async Task EnsureWorkColumnAsync(SqliteConnection connection, string columnName)
+    private static async Task EnsureWorkColumnAsync(
+        SqliteConnection connection,
+        ISet<string> columns,
+        string columnName)
     {
-        var info = connection.CreateCommand();
-        info.CommandText = "PRAGMA table_info(works);";
-        await using (var reader = await info.ExecuteReaderAsync())
+        if (columns.Contains(columnName))
         {
-            while (await reader.ReadAsync())
-            {
-                if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return;
-                }
-            }
+            return;
         }
 
         var definition = columnName switch
@@ -426,6 +484,7 @@ public sealed class Database
         var alter = connection.CreateCommand();
         alter.CommandText = $"ALTER TABLE works ADD COLUMN {definition};";
         await alter.ExecuteNonQueryAsync();
+        columns.Add(columnName);
     }
 
     private static string GetDefaultPath()

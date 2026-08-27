@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
+using System.Windows.Media.Imaging;
 using QuietShelf.Converters;
 using QuietShelf.Data;
 using QuietShelf.Models;
@@ -18,6 +20,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private string? _selectedWorkId;
     private MediaWork? _selectedWork;
     private MediaExperience? _activeExperience;
+    private int _selectionLoadVersion;
+    private CancellationTokenSource? _searchDebounceCancellation;
+    private bool _isApplyingFilters;
 
     public MainWindow()
     {
@@ -83,6 +88,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private async void WorkList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isApplyingFilters)
+        {
+            return;
+        }
+
         if (WorkList.SelectedItem is not MediaWork work)
         {
             if (VisibleWorks.Count == 0)
@@ -93,12 +103,37 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
 
         _selectedWorkId = work.Id;
-        await LoadSelectedWorkAsync(work.Id);
+        if (_selectedWork?.Id != work.Id)
+        {
+            await LoadSelectedWorkAsync(work.Id);
+        }
     }
 
-    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => ApplyFilters();
+    private async void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_repository is null)
+        {
+            return;
+        }
 
-    private void Filter_Click(object sender, RoutedEventArgs e)
+        _searchDebounceCancellation?.Cancel();
+        _searchDebounceCancellation?.Dispose();
+        var cancellation = new CancellationTokenSource();
+        _searchDebounceCancellation = cancellation;
+        try
+        {
+            await Task.Delay(200, cancellation.Token);
+            if (_searchDebounceCancellation == cancellation)
+            {
+                await ApplyFiltersAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async void Filter_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not System.Windows.Controls.Button button || button.Tag is not string filter)
         {
@@ -106,7 +141,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
         _kindFilter = filter;
         UpdateFilterButtons();
-        ApplyFilters();
+        CancelPendingSearch();
+        await ApplyFiltersAsync();
     }
 
     private async Task ReloadLibraryAsync(string? selectWorkId = null)
@@ -120,10 +156,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             _selectedWorkId = selectWorkId;
         }
-        ApplyFilters();
+        CancelPendingSearch();
+        await ApplyFiltersAsync(reloadSelected: true);
     }
 
-    private void ApplyFilters()
+    private async Task ApplyFiltersAsync(bool reloadSelected = false)
     {
         var query = SearchBox?.Text.Trim() ?? string.Empty;
         var matches = _allWorks.Where(work =>
@@ -132,10 +169,26 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
              || work.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase)
              || (work.Subtitle?.Contains(query, StringComparison.CurrentCultureIgnoreCase) ?? false))).ToList();
 
-        VisibleWorks.Clear();
-        foreach (var work in matches)
+        var selected = matches.FirstOrDefault(work => work.Id == _selectedWorkId);
+        if (selected is null && matches.Count > 0 && string.IsNullOrWhiteSpace(query))
         {
-            VisibleWorks.Add(work);
+            selected = matches[0];
+        }
+
+        _isApplyingFilters = true;
+        try
+        {
+            VisibleWorks.Clear();
+            foreach (var work in matches)
+            {
+                VisibleWorks.Add(work);
+            }
+
+            WorkList.SelectedItem = selected;
+        }
+        finally
+        {
+            _isApplyingFilters = false;
         }
 
         if (EmptyState is null || WorkList is null)
@@ -149,16 +202,24 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             ? "先加入一本书，或一部想留下来的影视。"
             : "换一个标题关键词或类别试试。";
 
-        var selected = matches.FirstOrDefault(work => work.Id == _selectedWorkId);
-        if (selected is null && matches.Count > 0 && string.IsNullOrWhiteSpace(query))
-        {
-            selected = matches[0];
-        }
-        WorkList.SelectedItem = selected;
         if (selected is null)
         {
             ShowNoSelection();
+            return;
         }
+
+        _selectedWorkId = selected.Id;
+        if (reloadSelected || _selectedWork?.Id != selected.Id)
+        {
+            await LoadSelectedWorkAsync(selected.Id);
+        }
+    }
+
+    private void CancelPendingSearch()
+    {
+        _searchDebounceCancellation?.Cancel();
+        _searchDebounceCancellation?.Dispose();
+        _searchDebounceCancellation = null;
     }
 
     private void UpdateFilterButtons()
@@ -178,18 +239,44 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
 
-        _selectedWork = await _repository.GetWorkAsync(workId);
-        if (_selectedWork is null)
+        var loadVersion = ++_selectionLoadVersion;
+        _selectedWork = null;
+        _activeExperience = null;
+        var selectedWorkTask = _repository.GetWorkAsync(workId);
+        var coversTask = _repository.GetCoversAsync(workId);
+        var experiencesTask = _repository.GetExperiencesAsync(workId);
+        await Task.WhenAll(selectedWorkTask, coversTask, experiencesTask);
+        if (loadVersion != _selectionLoadVersion || _selectedWorkId != workId)
         {
-            ShowNoSelection();
             return;
         }
 
-        var covers = await _repository.GetCoversAsync(workId);
-        var allExperiences = await _repository.GetExperiencesAsync(workId);
-        _activeExperience = allExperiences.FirstOrDefault(experience => experience.StartedOn is not null && experience.CompletedOn is null);
+        var selectedWork = await selectedWorkTask;
+        if (selectedWork is null)
+        {
+            if (loadVersion == _selectionLoadVersion && _selectedWorkId == workId)
+            {
+                ShowNoSelection();
+            }
+            return;
+        }
+
+        var covers = await coversTask;
+        var allExperiences = await experiencesTask;
+        var activeExperience = allExperiences.FirstOrDefault(experience => experience.StartedOn is not null && experience.CompletedOn is null);
+        IReadOnlyList<ProgressEntry> progressEntries = activeExperience is null
+            ? []
+            : await _repository.GetProgressEntriesAsync(activeExperience.Id);
+        if (loadVersion != _selectionLoadVersion || _selectedWorkId != workId)
+        {
+            return;
+        }
+
+        _selectedWork = selectedWork;
+        _activeExperience = activeExperience;
 
         RenderCoverStack(covers);
+        ApplyHeroPalette(covers);
         DetailTitleText.Text = _selectedWork.Title;
         DetailSubtitleText.Text = _selectedWork.Subtitle ?? string.Empty;
         DetailSubtitleText.Visibility = string.IsNullOrWhiteSpace(_selectedWork.Subtitle)
@@ -211,7 +298,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             ActiveDateText.Text = _activeExperience.DateRangeLabel;
             ActiveSummaryText.Text = _activeExperience.ProgressSummaryLabel;
-            foreach (var entry in await _repository.GetProgressEntriesAsync(_activeExperience.Id))
+            foreach (var entry in progressEntries)
             {
                 ProgressEntries.Add(entry);
             }
@@ -239,8 +326,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             var placeholder = new Border
             {
-                Width = 108,
-                Height = 152,
+                Width = 122,
+                Height = 174,
                 CornerRadius = new CornerRadius(9),
                 Background = (Brush)FindResource("AccentSoftBrush"),
                 BorderBrush = (Brush)FindResource("DividerBrush"),
@@ -255,7 +342,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                     VerticalAlignment = VerticalAlignment.Center
                 }
             };
-            Canvas.SetLeft(placeholder, 8);
+            Canvas.SetLeft(placeholder, 9);
             Canvas.SetTop(placeholder, 8);
             DetailCoverCanvas.Children.Add(placeholder);
             AddCoverBadge("+");
@@ -268,20 +355,20 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             var position = Math.Min(cover.SortOrder, 2);
             var (left, top, angle) = position switch
             {
-                0 => (8d, 8d, 0d),
-                1 => (11d, 7d, 3d),
-                _ => (5d, 7d, -3d)
+                0 => (9d, 8d, 0d),
+                1 => (12d, 8d, 3d),
+                _ => (6d, 8d, -3d)
             };
             var image = new Image
             {
-                Source = new CoverImageConverter().Convert(cover.FilePath, typeof(ImageSource), null!, System.Globalization.CultureInfo.InvariantCulture) as ImageSource,
+                Source = new CoverImageConverter().Convert(cover.FilePath, typeof(ImageSource), 216, System.Globalization.CultureInfo.InvariantCulture) as ImageSource,
                 Stretch = Stretch.Uniform,
                 Margin = new Thickness(2)
             };
             var card = new Border
             {
-                Width = 108,
-                Height = 152,
+                Width = 122,
+                Height = 174,
                 CornerRadius = new CornerRadius(8),
                 Background = new SolidColorBrush(Color.FromRgb(232, 236, 233)),
                 BorderBrush = (Brush)FindResource("DividerBrush"),
@@ -300,6 +387,83 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             AddCoverBadge(covers.Count.ToString());
         }
+    }
+
+    private void ApplyHeroPalette(IReadOnlyList<WorkCover> covers)
+    {
+        var accent = Color.FromRgb(47, 101, 76);
+        var coverPath = covers.FirstOrDefault()?.FilePath;
+        if (coverPath is { Length: > 0 } && File.Exists(coverPath))
+        {
+            try
+            {
+                accent = ReadCoverColor(coverPath);
+            }
+            catch
+            {
+                // A cover that cannot be sampled should not prevent the work from opening.
+            }
+        }
+
+        var first = Blend(accent, Color.FromRgb(247, 249, 246), 0.82);
+        var second = Blend(accent, Color.FromRgb(250, 245, 237), 0.89);
+        DetailHero.Background = new LinearGradientBrush(first, second, new Point(0, 0), new Point(1, 1));
+    }
+
+    private static Color ReadCoverColor(string filePath)
+    {
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.DecodePixelWidth = 36;
+        bitmap.UriSource = new Uri(filePath, UriKind.Absolute);
+        bitmap.EndInit();
+        bitmap.Freeze();
+
+        var converted = new FormatConvertedBitmap(bitmap, PixelFormats.Bgra32, null, 0);
+        var stride = converted.PixelWidth * 4;
+        var pixels = new byte[stride * converted.PixelHeight];
+        converted.CopyPixels(pixels, stride, 0);
+
+        double red = 0;
+        double green = 0;
+        double blue = 0;
+        double totalWeight = 0;
+        for (var index = 0; index < pixels.Length; index += 4)
+        {
+            var b = pixels[index];
+            var g = pixels[index + 1];
+            var r = pixels[index + 2];
+            var alpha = pixels[index + 3];
+            var brightest = Math.Max(r, Math.Max(g, b));
+            var darkest = Math.Min(r, Math.Min(g, b));
+            if (alpha < 128 || brightest > 246 || brightest < 18)
+            {
+                continue;
+            }
+
+            var saturation = (brightest - darkest) / 255d;
+            var weight = 1d + saturation * 2.5d;
+            red += r * weight;
+            green += g * weight;
+            blue += b * weight;
+            totalWeight += weight;
+        }
+
+        return totalWeight < 1
+            ? Color.FromRgb(47, 101, 76)
+            : Color.FromRgb(
+                (byte)Math.Clamp(red / totalWeight, 0, 255),
+                (byte)Math.Clamp(green / totalWeight, 0, 255),
+                (byte)Math.Clamp(blue / totalWeight, 0, 255));
+    }
+
+    private static Color Blend(Color source, Color target, double targetAmount)
+    {
+        return Color.FromRgb(
+            (byte)Math.Round(source.R + (target.R - source.R) * targetAmount),
+            (byte)Math.Round(source.G + (target.G - source.G) * targetAmount),
+            (byte)Math.Round(source.B + (target.B - source.B) * targetAmount));
     }
 
     private void AddCoverBadge(string text)
@@ -330,6 +494,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private void ShowNoSelection()
     {
+        _selectionLoadVersion++;
         _selectedWork = null;
         _activeExperience = null;
         DetailScroll.Visibility = Visibility.Collapsed;
@@ -376,7 +541,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        await _repository.AddProgressEntryAsync(dialog.Entry, _selectedWork.Id, dialog.TotalEpisodes);
+        await _repository.AddProgressEntryAsync(dialog.Entry, dialog.TotalEpisodes);
         await ReloadLibraryAsync(_selectedWork.Id);
     }
 
@@ -397,7 +562,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        await _repository.UpdateProgressEntryAsync(dialog.Entry, _selectedWork.Id, dialog.TotalEpisodes);
+        await _repository.UpdateProgressEntryAsync(dialog.Entry, dialog.TotalEpisodes);
         await ReloadLibraryAsync(_selectedWork.Id);
     }
 
@@ -414,7 +579,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        await _repository.DeleteProgressEntryAsync(entry.Id, _selectedWork.Id);
+        await _repository.DeleteProgressEntryAsync(entry.Id);
         await ReloadLibraryAsync(_selectedWork.Id);
     }
 
@@ -457,7 +622,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        var progressCount = (await _repository.GetProgressEntriesAsync(experience.Id)).Count;
+        var progressCount = experience.ProgressEntryCount;
         var detail = progressCount == 0 ? "这次体验没有中途记录。" : $"其中的 {progressCount} 条中途记录也会一起删除。";
         var choice = MessageBox.Show(
             $"删除 {experience.DateRangeLabel} 的这次{(_selectedWork.Kind == "book" ? "阅读" : "观看")}？\n\n{detail}\n完成次数和综合评分会自动重新计算。此操作无法撤销。",

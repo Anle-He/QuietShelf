@@ -69,13 +69,15 @@ public sealed class LibraryRepository(Database database)
         command.CommandText = """
             SELECT e.id, e.work_id, e.started_on, e.completed_on, e.allure, e.immersion, e.rationality, e.illumination,
                    e.notes, e.created_at, e.updated_at,
-                   (SELECT COUNT(DISTINCT p.logged_on) FROM progress_entries p WHERE p.experience_id = e.id),
-                   COALESCE((SELECT SUM(p.amount) FROM progress_entries p WHERE p.experience_id = e.id AND p.metric = 'duration'), 0),
-                   COALESCE((SELECT SUM(p.amount) FROM progress_entries p WHERE p.experience_id = e.id AND p.metric = 'episodes'), 0),
+                   COUNT(DISTINCT p.logged_on),
+                   COALESCE(SUM(CASE WHEN p.metric = 'duration' THEN p.amount ELSE 0 END), 0),
+                   COALESCE(SUM(CASE WHEN p.metric = 'episodes' THEN p.amount ELSE 0 END), 0),
                    w.total_episodes
             FROM experiences e
             JOIN works w ON w.id = e.work_id
+            LEFT JOIN progress_entries p ON p.experience_id = e.id
             WHERE e.work_id = $workId
+            GROUP BY e.id
             ORDER BY COALESCE(e.completed_on, e.started_on, substr(e.created_at, 1, 10)) DESC, e.created_at DESC;
             """;
         command.Parameters.AddWithValue("$workId", workId);
@@ -330,7 +332,7 @@ public sealed class LibraryRepository(Database database)
         return entries;
     }
 
-    public async Task AddProgressEntryAsync(ProgressEntry entry, string workId, int? totalEpisodes = null)
+    public async Task AddProgressEntryAsync(ProgressEntry entry, int? totalEpisodes = null)
     {
         await using var connection = await OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
@@ -352,15 +354,19 @@ public sealed class LibraryRepository(Database database)
 
         var update = connection.CreateCommand();
         update.Transaction = (SqliteTransaction)transaction;
-        update.CommandText = "UPDATE works SET total_episodes = COALESCE($totalEpisodes, total_episodes), updated_at = $updatedAt WHERE id = $workId;";
+        update.CommandText = """
+            UPDATE works
+            SET total_episodes = COALESCE($totalEpisodes, total_episodes), updated_at = $updatedAt
+            WHERE id = (SELECT work_id FROM experiences WHERE id = $experienceId);
+            """;
         update.Parameters.AddWithValue("$totalEpisodes", totalEpisodes ?? (object)DBNull.Value);
         update.Parameters.AddWithValue("$updatedAt", entry.UpdatedAt.ToString("O"));
-        update.Parameters.AddWithValue("$workId", workId);
+        update.Parameters.AddWithValue("$experienceId", entry.ExperienceId);
         await update.ExecuteNonQueryAsync();
         await transaction.CommitAsync();
     }
 
-    public async Task UpdateProgressEntryAsync(ProgressEntry entry, string workId, int? totalEpisodes = null)
+    public async Task UpdateProgressEntryAsync(ProgressEntry entry, int? totalEpisodes = null)
     {
         await using var connection = await OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
@@ -378,21 +384,43 @@ public sealed class LibraryRepository(Database database)
         updateEntry.Parameters.AddWithValue("$amount", entry.Amount);
         updateEntry.Parameters.AddWithValue("$notes", (object?)entry.Notes ?? DBNull.Value);
         updateEntry.Parameters.AddWithValue("$updatedAt", entry.UpdatedAt.ToString("O"));
-        await updateEntry.ExecuteNonQueryAsync();
+        if (await updateEntry.ExecuteNonQueryAsync() != 1)
+        {
+            throw new InvalidOperationException("The progress entry no longer exists for this experience.");
+        }
         var updateWork = connection.CreateCommand();
         updateWork.Transaction = (SqliteTransaction)transaction;
-        updateWork.CommandText = "UPDATE works SET total_episodes=COALESCE($totalEpisodes, total_episodes), updated_at=$updatedAt WHERE id=$workId;";
+        updateWork.CommandText = """
+            UPDATE works
+            SET total_episodes=COALESCE($totalEpisodes, total_episodes), updated_at=$updatedAt
+            WHERE id = (SELECT work_id FROM experiences WHERE id = $experienceId);
+            """;
         updateWork.Parameters.AddWithValue("$totalEpisodes", totalEpisodes ?? (object)DBNull.Value);
         updateWork.Parameters.AddWithValue("$updatedAt", entry.UpdatedAt.ToString("O"));
-        updateWork.Parameters.AddWithValue("$workId", workId);
+        updateWork.Parameters.AddWithValue("$experienceId", entry.ExperienceId);
         await updateWork.ExecuteNonQueryAsync();
         await transaction.CommitAsync();
     }
 
-    public async Task DeleteProgressEntryAsync(string entryId, string workId)
+    public async Task DeleteProgressEntryAsync(string entryId)
     {
         await using var connection = await OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
+        var findWork = connection.CreateCommand();
+        findWork.Transaction = (SqliteTransaction)transaction;
+        findWork.CommandText = """
+            SELECT experience.work_id
+            FROM progress_entries AS progress
+            JOIN experiences AS experience ON experience.id = progress.experience_id
+            WHERE progress.id = $id;
+            """;
+        findWork.Parameters.AddWithValue("$id", entryId);
+        var workId = await findWork.ExecuteScalarAsync() as string;
+        if (workId is null)
+        {
+            return;
+        }
+
         var delete = connection.CreateCommand();
         delete.Transaction = (SqliteTransaction)transaction;
         delete.CommandText = "DELETE FROM progress_entries WHERE id=$id;";
