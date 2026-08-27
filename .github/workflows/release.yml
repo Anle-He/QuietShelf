@@ -59,11 +59,12 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($compiler)) {
             throw 'Inno Setup 6 compiler was not found on the hosted Windows runner.'
           }
-          $compilerVersion = (Get-Item -LiteralPath $compiler).VersionInfo.ProductVersion
-          if (-not $compilerVersion.StartsWith('6.')) {
-            throw "Expected Inno Setup 6, found version '$compilerVersion'."
+          $compilerBanner = (& $compiler /? 2>&1 | Out-String).Trim()
+          if ($compilerBanner -notmatch 'Inno Setup 6 Command-Line Compiler') {
+            throw "Expected the Inno Setup 6 compiler at '$compiler'."
           }
-          "Using Inno Setup $compilerVersion at $compiler"
+          $compilerBanner -split "`r?`n" | Select-Object -First 2
+          "Using compiler at $compiler"
 
       - name: Build installer
         shell: pwsh
