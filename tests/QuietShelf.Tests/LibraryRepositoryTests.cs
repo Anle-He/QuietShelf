@@ -88,8 +88,8 @@ public sealed class LibraryRepositoryTests
             Metric = "duration",
             Amount = 45
         };
-        await context.Repository.AddProgressEntryAsync(firstProgress, work.Id);
-        await context.Repository.AddProgressEntryAsync(secondProgress, work.Id);
+        await context.Repository.AddProgressEntryAsync(firstProgress);
+        await context.Repository.AddProgressEntryAsync(secondProgress);
         await context.Repository.UpdateProgressEntryAsync(new ProgressEntry
         {
             Id = firstProgress.Id,
@@ -99,8 +99,8 @@ public sealed class LibraryRepositoryTests
             Amount = 35,
             Notes = firstProgress.Notes,
             CreatedAt = firstProgress.CreatedAt
-        }, work.Id);
-        await context.Repository.DeleteProgressEntryAsync(secondProgress.Id, work.Id);
+        });
+        await context.Repository.DeleteProgressEntryAsync(secondProgress.Id);
 
         await context.Repository.UpdateExperienceAsync(new MediaExperience
         {
@@ -141,6 +141,33 @@ public sealed class LibraryRepositoryTests
     }
 
     [Fact]
+    public async Task ProgressMetadata_UpdateUsesExperienceOwnership()
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var firstWork = new MediaWork { Title = "first-work", Kind = "screen" };
+        var secondWork = new MediaWork { Title = "second-work", Kind = "screen" };
+        await context.Repository.AddWorkAsync(firstWork);
+        await context.Repository.AddWorkAsync(secondWork);
+        var experience = new MediaExperience
+        {
+            WorkId = firstWork.Id,
+            StartedOn = new DateOnly(2026, 8, 22)
+        };
+        await context.Repository.AddExperienceAsync(experience);
+
+        await context.Repository.AddProgressEntryAsync(new ProgressEntry
+        {
+            ExperienceId = experience.Id,
+            LoggedOn = new DateOnly(2026, 8, 22),
+            Metric = "episodes",
+            Amount = 1
+        }, totalEpisodes: 10);
+
+        Assert.Equal(10, (await context.Repository.GetWorkAsync(firstWork.Id))?.TotalEpisodes);
+        Assert.Null((await context.Repository.GetWorkAsync(secondWork.Id))?.TotalEpisodes);
+    }
+
+    [Fact]
     public async Task EpisodeProgress_TracksAvailableAndWatchedTotals()
     {
         await using var context = await TempDatabase.CreateAsync();
@@ -158,7 +185,7 @@ public sealed class LibraryRepositoryTests
             LoggedOn = new DateOnly(2026, 8, 21),
             Metric = "episodes",
             Amount = 2
-        }, work.Id, totalEpisodes: 12);
+        }, totalEpisodes: 12);
 
         var storedWork = await context.Repository.GetWorkAsync(work.Id);
         var history = await context.Repository.GetExperiencesAsync(work.Id);

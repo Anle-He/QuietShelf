@@ -67,7 +67,7 @@ public partial class WorkDetailWindow : Window
         {
             return;
         }
-        await _repository.AddProgressEntryAsync(dialog.Entry, _work.Id, dialog.TotalEpisodes);
+        await _repository.AddProgressEntryAsync(dialog.Entry, dialog.TotalEpisodes);
         await ReloadAsync();
     }
 
@@ -88,7 +88,7 @@ public partial class WorkDetailWindow : Window
         {
             return;
         }
-        await _repository.UpdateProgressEntryAsync(dialog.Entry, _work.Id, dialog.TotalEpisodes);
+        await _repository.UpdateProgressEntryAsync(dialog.Entry, dialog.TotalEpisodes);
         await ReloadAsync();
     }
 
@@ -105,7 +105,7 @@ public partial class WorkDetailWindow : Window
         {
             return;
         }
-        await _repository.DeleteProgressEntryAsync(entry.Id, _work.Id);
+        await _repository.DeleteProgressEntryAsync(entry.Id);
         await ReloadAsync();
     }
 

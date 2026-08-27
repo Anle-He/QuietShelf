@@ -18,6 +18,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private string? _selectedWorkId;
     private MediaWork? _selectedWork;
     private MediaExperience? _activeExperience;
+    private int _selectionLoadVersion;
 
     public MainWindow()
     {
@@ -178,16 +179,32 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
 
-        _selectedWork = await _repository.GetWorkAsync(workId);
-        if (_selectedWork is null)
+        var loadVersion = ++_selectionLoadVersion;
+        _selectedWork = null;
+        _activeExperience = null;
+        var selectedWork = await _repository.GetWorkAsync(workId);
+        if (selectedWork is null)
         {
-            ShowNoSelection();
+            if (loadVersion == _selectionLoadVersion && _selectedWorkId == workId)
+            {
+                ShowNoSelection();
+            }
             return;
         }
 
         var covers = await _repository.GetCoversAsync(workId);
         var allExperiences = await _repository.GetExperiencesAsync(workId);
-        _activeExperience = allExperiences.FirstOrDefault(experience => experience.StartedOn is not null && experience.CompletedOn is null);
+        var activeExperience = allExperiences.FirstOrDefault(experience => experience.StartedOn is not null && experience.CompletedOn is null);
+        IReadOnlyList<ProgressEntry> progressEntries = activeExperience is null
+            ? []
+            : await _repository.GetProgressEntriesAsync(activeExperience.Id);
+        if (loadVersion != _selectionLoadVersion || _selectedWorkId != workId)
+        {
+            return;
+        }
+
+        _selectedWork = selectedWork;
+        _activeExperience = activeExperience;
 
         RenderCoverStack(covers);
         DetailTitleText.Text = _selectedWork.Title;
@@ -211,7 +228,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             ActiveDateText.Text = _activeExperience.DateRangeLabel;
             ActiveSummaryText.Text = _activeExperience.ProgressSummaryLabel;
-            foreach (var entry in await _repository.GetProgressEntriesAsync(_activeExperience.Id))
+            foreach (var entry in progressEntries)
             {
                 ProgressEntries.Add(entry);
             }
@@ -330,6 +347,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private void ShowNoSelection()
     {
+        _selectionLoadVersion++;
         _selectedWork = null;
         _activeExperience = null;
         DetailScroll.Visibility = Visibility.Collapsed;
@@ -376,7 +394,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        await _repository.AddProgressEntryAsync(dialog.Entry, _selectedWork.Id, dialog.TotalEpisodes);
+        await _repository.AddProgressEntryAsync(dialog.Entry, dialog.TotalEpisodes);
         await ReloadLibraryAsync(_selectedWork.Id);
     }
 
@@ -397,7 +415,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        await _repository.UpdateProgressEntryAsync(dialog.Entry, _selectedWork.Id, dialog.TotalEpisodes);
+        await _repository.UpdateProgressEntryAsync(dialog.Entry, dialog.TotalEpisodes);
         await ReloadLibraryAsync(_selectedWork.Id);
     }
 
@@ -414,7 +432,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        await _repository.DeleteProgressEntryAsync(entry.Id, _selectedWork.Id);
+        await _repository.DeleteProgressEntryAsync(entry.Id);
         await ReloadLibraryAsync(_selectedWork.Id);
     }
 
