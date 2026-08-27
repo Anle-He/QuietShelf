@@ -6,7 +6,7 @@ namespace QuietShelf.Tests;
 public sealed class DatabaseMigrationTests
 {
     [Fact]
-    public async Task VersionOneMigration_DoesNotRestoreDeletedLegacyWork()
+    public async Task CurrentMigration_DoesNotRestoreDeletedLegacyWork()
     {
         var root = Path.Combine(Path.GetTempPath(), "QuietShelf-Tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -32,7 +32,7 @@ public sealed class DatabaseMigrationTests
     }
 
     [Fact]
-    public async Task VersionOneMigration_PreservesLegacyInProgressState()
+    public async Task CurrentMigration_PreservesLegacyInProgressState()
     {
         var root = Path.Combine(Path.GetTempPath(), "QuietShelf-Tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -58,7 +58,7 @@ public sealed class DatabaseMigrationTests
     }
 
     [Fact]
-    public async Task CurrentSchema_RepairsPreviouslyImportedInProgressExperience()
+    public async Task VersionTwoMigration_RepairsLegacyExperienceOnceAndAdvancesSchema()
     {
         var root = Path.Combine(Path.GetTempPath(), "QuietShelf-Tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -72,6 +72,18 @@ public sealed class DatabaseMigrationTests
 
             var active = await new LibraryRepository(database).GetActiveExperienceAsync("work-active");
             Assert.Equal(new DateOnly(2026, 8, 3), active?.StartedOn);
+            await using (var connection = new SqliteConnection(database.ConnectionString))
+            {
+                await connection.OpenAsync();
+                Assert.Equal(2L, await ScalarInt64Async(connection, "PRAGMA user_version;"));
+                var reset = connection.CreateCommand();
+                reset.CommandText = "UPDATE experiences SET started_on=NULL WHERE id='work-active-legacy-1';";
+                await reset.ExecuteNonQueryAsync();
+            }
+
+            await new Database(databasePath).InitializeAsync();
+
+            Assert.Null(await new LibraryRepository(new Database(databasePath)).GetActiveExperienceAsync("work-active"));
         }
         finally
         {
@@ -81,7 +93,7 @@ public sealed class DatabaseMigrationTests
     }
 
     [Fact]
-    public async Task VersionOneMigration_ClampsAllureAndPreservesRecoveryCopy()
+    public async Task CurrentMigration_ClampsAllureAndPreservesRecoveryCopy()
     {
         var root = Path.Combine(Path.GetTempPath(), "QuietShelf-Tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -97,7 +109,7 @@ public sealed class DatabaseMigrationTests
             await using (var current = new SqliteConnection(database.ConnectionString))
             {
                 await current.OpenAsync();
-                Assert.Equal(1L, await ScalarInt64Async(current, "PRAGMA user_version;"));
+                Assert.Equal(2L, await ScalarInt64Async(current, "PRAGMA user_version;"));
                 Assert.Equal(3L, await ScalarInt64Async(current, "SELECT allure FROM experiences WHERE id='experience-1';"));
                 Assert.Equal(1L, await ScalarInt64Async(current, "SELECT COUNT(*) FROM progress_entries WHERE experience_id='experience-1';"));
 
