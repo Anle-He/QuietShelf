@@ -2,54 +2,46 @@
 
 QuietShelf 是一个本地优先、低打扰的 Windows 书影音记录应用。
 
-它以作品为单位管理书籍和影视；同一作品可以有多次阅读或观看体验。进行过程中可以按分钟或集数留下每日进度，完成后再记录起止日期、总结和四维评分。完整评分会汇总为作品综合分。
+它以作品为中心：一本书或一部影视只在作品库中出现一次，其下可以保留多次阅读或观看、每日进度、完成总结与评分。
 
-## 当前功能
+## 主要功能
 
-- 双栏作品库、主副标题搜索和书籍/影视筛选
-- 可选副标题与作品信息编辑
-- 每部作品可保存多张本地封面，并以照片堆展示不同版本
-- 多次阅读或观看，以及进行中的每日记录
-- 按时长或集数记录；影视可保存总集数并显示累计进度
-- 四维评分、单次评分和作品综合评分
-- 分层编辑与删除
-- SQLite 本地存储，无账号、社交、推荐、广告或在线元数据抓取
+- 书籍与影视作品库，支持主副标题搜索和类别筛选
+- 多次阅读或观看，以及按分钟或集数记录的每日进度
+- 每次完成后的四维评分，以及基于完整评分汇总的作品综合分
+- 多张本地封面，用照片堆呈现同一作品的不同版本
+- 记录、封面和迁移备份全部保存在本地
 
-项目目前处于 `0.1.0-alpha` 阶段，数据结构和交互仍可能调整。
+QuietShelf 不包含账号、社交、推荐、广告或在线元数据抓取。当前版本为 `0.1.0-alpha`。
 
-## 运行与数据
+## 安装与数据
 
-从 [Releases](https://github.com/Anle-He/QuietShelf/releases) 下载 `QuietShelf-Setup-<版本>.exe`。安装完成后可以从 Windows 开始菜单启动，并可在“已安装的应用”中卸载。
+从 [Releases](https://github.com/Anle-He/QuietShelf/releases) 下载 `QuietShelf-Setup-<版本>.exe`，安装后可从开始菜单启动，并在 Windows“已安装的应用”中卸载。
 
-个人记录默认保存在：
+默认数据目录：
 
 ```text
-%LOCALAPPDATA%\QuietShelf\records.db
+%LOCALAPPDATA%\QuietShelf
 ```
 
-数据库、编译产物和本机配置均被 Git 忽略，不会进入源码仓库。
-导入的封面保存在同一数据目录下的 `covers` 文件夹中。
+其中 `records.db` 保存记录，`covers` 保存封面；数据库升级前生成的备份也位于此处。需要更换位置时，可以设置环境变量 `QUIETSHELF_DATA_DIR`。
 
 ## 从源码构建
 
-需要 Windows 与 .NET 10 SDK：
+需要 Windows 和 .NET 10 SDK：
 
 ```powershell
-dotnet restore .\QuietShelf.slnx
-dotnet build .\QuietShelf.slnx -c Release
+dotnet restore .\QuietShelf.slnx --locked-mode
+dotnet build .\QuietShelf.slnx --no-restore -c Release
 ```
 
-生成 Windows 安装包需要 .NET 10 SDK 与 Inno Setup 6：
+生成安装包还需要 Inno Setup 6：
 
 ```powershell
 .\scripts\build-installer.ps1
 ```
 
-正式版本从标签提交构建，版本来源、产物和校验流程见 [`docs/RELEASE.md`](docs/RELEASE.md)。
-
-## 产品边界与设计
-
-产品、交互、设计与工程决策位于 [`docs`](docs/PRODUCT.md)。界面和数据结构参考了 Openreads、LibrisLog、Yamtrack 与 WPF UI 等开源项目，但 QuietShelf 保持个人日志工具的最小边界。
+产品边界与技术设计见 [`docs`](docs/PRODUCT.md)，发布流程见 [`docs/RELEASE.md`](docs/RELEASE.md)。
 
 ## License
 
