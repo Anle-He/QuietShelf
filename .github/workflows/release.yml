@@ -47,25 +47,6 @@ jobs:
           dotnet build .\QuietShelf.slnx --no-restore -c Release
           dotnet test .\QuietShelf.slnx --no-build -c Release --filter "Category!=Manual&Category!=LocalData"
 
-      - name: Verify Inno Setup 6
-        shell: pwsh
-        run: |
-          $compilerCandidates = @(
-            "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
-            'C:\Program Files (x86)\Inno Setup 6\ISCC.exe',
-            'C:\Program Files\Inno Setup 6\ISCC.exe'
-          )
-          $compiler = $compilerCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-          if ([string]::IsNullOrWhiteSpace($compiler)) {
-            throw 'Inno Setup 6 compiler was not found on the hosted Windows runner.'
-          }
-          $compilerBanner = (& $compiler /? 2>&1 | Out-String).Trim()
-          if ($compilerBanner -notmatch 'Inno Setup 6 Command-Line Compiler') {
-            throw "Expected the Inno Setup 6 compiler at '$compiler'."
-          }
-          $compilerBanner -split "`r?`n" | Select-Object -First 2
-          "Using compiler at $compiler"
-
       - name: Build installer
         shell: pwsh
         run: .\scripts\build-installer.ps1 -NoRestore
