@@ -53,7 +53,7 @@ jobs:
         shell: pwsh
         run: .\scripts\build-installer.ps1 -NoRestore
 
-      - name: Assemble release bundle and checksums
+      - name: Assemble release bundle
         shell: pwsh
         run: |
           $version = (dotnet msbuild .\src\QuietShelf.App\QuietShelf.App.csproj -nologo -getProperty:Version).Trim()
@@ -61,10 +61,6 @@ jobs:
           New-Item -ItemType Directory -Path $releaseDirectory -Force | Out-Null
           Compress-Archive -Path '.\artifacts\win-x64\*' -DestinationPath (Join-Path $releaseDirectory "QuietShelf-$version-win-x64.zip")
           Copy-Item -LiteralPath ".\artifacts\installer\QuietShelf-Setup-$version.exe" -Destination $releaseDirectory
-          Get-ChildItem -LiteralPath $releaseDirectory -File |
-            Sort-Object Name |
-            ForEach-Object { "{0} *{1}" -f (Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash.ToLowerInvariant(), $_.Name } |
-            Set-Content -LiteralPath (Join-Path $releaseDirectory 'SHA256SUMS.txt') -Encoding ascii
 
       - name: Upload release bundle
         uses: actions/upload-artifact@v4

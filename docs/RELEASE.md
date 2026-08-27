@@ -13,7 +13,7 @@
 
 ## 构建发布产物
 
-正式打标签前，可以从 GitHub Actions 手动运行 `Release artifacts` 工作流。它会从所选分支生成候选 ZIP、安装包和校验文件，用于验证完整发布路径，但不会创建标签或 Release。
+正式打标签前，可以从 GitHub Actions 手动运行 `Release artifacts` 工作流。它会从所选分支生成候选 ZIP 和安装包，用于验证完整发布路径，但不会创建标签或 Release。
 
 在原始电脑上创建与项目版本完全一致的标签，例如：
 
@@ -26,8 +26,7 @@ git push origin v0.1.1
 
 - `QuietShelf-<版本>-win-x64.zip`
 - `QuietShelf-Setup-<版本>.exe`
-- `SHA256SUMS.txt`
 
-工作流只上传待审查的 Actions artifact，不会自动创建 GitHub Release。原始电脑下载并核对产物、校验和及安装行为后，再手动创建 Release 并上传这三个文件。
+工作流只上传待审查的 Actions artifact，不会自动创建 GitHub Release。原始电脑下载并核对产物及安装行为后，再手动创建 Release 并上传这两个文件。
 
 如果标签与 `Directory.Build.props` 中的版本不一致，工作流会直接失败。不要通过修改工作流产物或重新使用旧标签绕过该检查。
