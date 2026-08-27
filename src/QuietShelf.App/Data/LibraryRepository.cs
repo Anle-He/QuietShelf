@@ -8,7 +8,13 @@ namespace QuietShelf.Data;
 public sealed class LibraryRepository(Database database)
 {
     private const string WorkSelect = """
-        SELECT w.id, w.title, w.subtitle, w.kind, w.status, w.total_episodes, w.created_at, w.updated_at,
+        SELECT w.id, w.title, w.subtitle, w.kind,
+               CASE
+                   WHEN SUM(CASE WHEN e.started_on IS NOT NULL AND e.completed_on IS NULL THEN 1 ELSE 0 END) > 0 THEN 'in_progress'
+                   WHEN SUM(CASE WHEN e.completed_on IS NOT NULL THEN 1 ELSE 0 END) > 0 THEN 'completed'
+                   ELSE 'planned'
+               END AS status,
+               w.total_episodes, w.created_at, w.updated_at,
                SUM(CASE WHEN e.completed_on IS NOT NULL THEN 1 ELSE 0 END) AS experience_count,
                SUM(CASE WHEN e.started_on IS NOT NULL AND e.completed_on IS NULL THEN 1 ELSE 0 END) AS active_count,
                SUM(CASE WHEN e.completed_on IS NOT NULL AND e.allure IS NOT NULL AND e.immersion IS NOT NULL
@@ -422,13 +428,11 @@ public sealed class LibraryRepository(Database database)
         insert.Parameters.AddWithValue("$updatedAt", experience.UpdatedAt.ToString("O"));
         await insert.ExecuteNonQueryAsync();
 
-        var update = connection.CreateCommand();
-        update.Transaction = (SqliteTransaction)transaction;
-        update.CommandText = "UPDATE works SET status = $status, updated_at = $updatedAt WHERE id = $id;";
-        update.Parameters.AddWithValue("$status", experience.CompletedOn is null ? "in_progress" : "completed");
-        update.Parameters.AddWithValue("$updatedAt", experience.UpdatedAt.ToString("O"));
-        update.Parameters.AddWithValue("$id", experience.WorkId);
-        await update.ExecuteNonQueryAsync();
+        await RefreshWorkStatusAsync(
+            connection,
+            (SqliteTransaction)transaction,
+            experience.WorkId,
+            experience.UpdatedAt);
         await transaction.CommitAsync();
     }
 
@@ -456,13 +460,11 @@ public sealed class LibraryRepository(Database database)
         command.Parameters.AddWithValue("$updatedAt", experience.UpdatedAt.ToString("O"));
         await command.ExecuteNonQueryAsync();
 
-        var update = connection.CreateCommand();
-        update.Transaction = (SqliteTransaction)transaction;
-        update.CommandText = "UPDATE works SET status=$status, updated_at=$updatedAt WHERE id=$workId;";
-        update.Parameters.AddWithValue("$workId", experience.WorkId);
-        update.Parameters.AddWithValue("$updatedAt", experience.UpdatedAt.ToString("O"));
-        update.Parameters.AddWithValue("$status", experience.CompletedOn is null ? "in_progress" : "completed");
-        await update.ExecuteNonQueryAsync();
+        await RefreshWorkStatusAsync(
+            connection,
+            (SqliteTransaction)transaction,
+            experience.WorkId,
+            experience.UpdatedAt);
         await transaction.CommitAsync();
     }
 
@@ -477,21 +479,11 @@ public sealed class LibraryRepository(Database database)
         delete.Parameters.AddWithValue("$workId", workId);
         await delete.ExecuteNonQueryAsync();
 
-        var update = connection.CreateCommand();
-        update.Transaction = (SqliteTransaction)transaction;
-        update.CommandText = """
-            UPDATE works SET
-                status = CASE
-                    WHEN EXISTS (SELECT 1 FROM experiences WHERE work_id=$workId AND started_on IS NOT NULL AND completed_on IS NULL) THEN 'in_progress'
-                    WHEN EXISTS (SELECT 1 FROM experiences WHERE work_id=$workId AND completed_on IS NOT NULL) THEN 'completed'
-                    ELSE 'planned'
-                END,
-                updated_at=$updatedAt
-            WHERE id=$workId;
-            """;
-        update.Parameters.AddWithValue("$workId", workId);
-        update.Parameters.AddWithValue("$updatedAt", DateTimeOffset.Now.ToString("O"));
-        await update.ExecuteNonQueryAsync();
+        await RefreshWorkStatusAsync(
+            connection,
+            (SqliteTransaction)transaction,
+            workId,
+            DateTimeOffset.Now);
         await transaction.CommitAsync();
     }
 
@@ -575,6 +567,35 @@ public sealed class LibraryRepository(Database database)
         update.CommandText = "UPDATE works SET updated_at=$updatedAt WHERE id=$workId;";
         update.Parameters.AddWithValue("$updatedAt", updatedAt.ToString("O"));
         update.Parameters.AddWithValue("$workId", workId);
+        await update.ExecuteNonQueryAsync();
+    }
+
+    private static async Task RefreshWorkStatusAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string workId,
+        DateTimeOffset updatedAt)
+    {
+        var update = connection.CreateCommand();
+        update.Transaction = transaction;
+        update.CommandText = """
+            UPDATE works SET
+                status = CASE
+                    WHEN EXISTS (
+                        SELECT 1 FROM experiences
+                        WHERE work_id=$workId AND started_on IS NOT NULL AND completed_on IS NULL
+                    ) THEN 'in_progress'
+                    WHEN EXISTS (
+                        SELECT 1 FROM experiences
+                        WHERE work_id=$workId AND completed_on IS NOT NULL
+                    ) THEN 'completed'
+                    ELSE 'planned'
+                END,
+                updated_at=$updatedAt
+            WHERE id=$workId;
+            """;
+        update.Parameters.AddWithValue("$workId", workId);
+        update.Parameters.AddWithValue("$updatedAt", updatedAt.ToString("O"));
         await update.ExecuteNonQueryAsync();
     }
 

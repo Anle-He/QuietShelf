@@ -152,6 +152,24 @@ public partial class App : Application
 
                     var disposable = new MediaExperience { WorkId = work.Id, StartedOn = new DateOnly(2026, 8, 20) };
                     await repository.AddExperienceAsync(disposable);
+                    var historical = history[0];
+                    await repository.UpdateExperienceAsync(new MediaExperience
+                    {
+                        Id = historical.Id,
+                        WorkId = historical.WorkId,
+                        StartedOn = historical.StartedOn,
+                        CompletedOn = historical.CompletedOn,
+                        Allure = historical.Allure,
+                        Immersion = historical.Immersion,
+                        Rationality = historical.Rationality,
+                        Illumination = historical.Illumination,
+                        Notes = "edited while another experience is active",
+                        CreatedAt = historical.CreatedAt
+                    });
+                    if ((await repository.GetWorkAsync(work.Id))?.Status != "in_progress")
+                    {
+                        throw new InvalidOperationException("Editing history changed the derived active status.");
+                    }
                     await repository.AddProgressEntryAsync(new ProgressEntry
                     {
                         ExperienceId = disposable.Id,
