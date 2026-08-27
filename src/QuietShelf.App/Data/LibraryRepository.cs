@@ -26,7 +26,8 @@ public sealed class LibraryRepository(Database database)
                    (SELECT MAX(p.logged_on) FROM progress_entries p WHERE p.experience_id = e.id),
                    e.completed_on, e.started_on, substr(e.created_at, 1, 10))) AS latest_activity,
                (SELECT c.file_name FROM work_covers c WHERE c.work_id = w.id
-                ORDER BY c.sort_order, c.created_at LIMIT 1) AS primary_cover_file
+                 ORDER BY c.sort_order, c.created_at LIMIT 1) AS primary_cover_file,
+               w.author
         FROM works w
         LEFT JOIN experiences e ON e.work_id = w.id
         """;
@@ -111,12 +112,13 @@ public sealed class LibraryRepository(Database database)
         await using var connection = await OpenAsync();
         var command = connection.CreateCommand();
         command.CommandText = """
-            INSERT INTO works (id, title, subtitle, kind, status, total_episodes, created_at, updated_at)
-            VALUES ($id, $title, $subtitle, $kind, $status, $totalEpisodes, $createdAt, $updatedAt);
+            INSERT INTO works (id, title, subtitle, author, kind, status, total_episodes, created_at, updated_at)
+            VALUES ($id, $title, $subtitle, $author, $kind, $status, $totalEpisodes, $createdAt, $updatedAt);
             """;
         command.Parameters.AddWithValue("$id", work.Id);
         command.Parameters.AddWithValue("$title", work.Title);
         command.Parameters.AddWithValue("$subtitle", (object?)work.Subtitle ?? DBNull.Value);
+        command.Parameters.AddWithValue("$author", work.Kind == "book" ? (object?)work.Author ?? DBNull.Value : DBNull.Value);
         command.Parameters.AddWithValue("$kind", work.Kind);
         command.Parameters.AddWithValue("$status", (object?)work.Status ?? DBNull.Value);
         command.Parameters.AddWithValue("$totalEpisodes", work.TotalEpisodes ?? (object)DBNull.Value);
@@ -131,12 +133,13 @@ public sealed class LibraryRepository(Database database)
         var command = connection.CreateCommand();
         command.CommandText = """
             UPDATE works
-            SET title = $title, subtitle = $subtitle, kind = $kind, updated_at = $updatedAt
+            SET title = $title, subtitle = $subtitle, author = $author, kind = $kind, updated_at = $updatedAt
             WHERE id = $id;
             """;
         command.Parameters.AddWithValue("$id", work.Id);
         command.Parameters.AddWithValue("$title", work.Title);
         command.Parameters.AddWithValue("$subtitle", (object?)work.Subtitle ?? DBNull.Value);
+        command.Parameters.AddWithValue("$author", work.Kind == "book" ? (object?)work.Author ?? DBNull.Value : DBNull.Value);
         command.Parameters.AddWithValue("$kind", work.Kind);
         command.Parameters.AddWithValue("$updatedAt", work.UpdatedAt.ToString("O"));
         await command.ExecuteNonQueryAsync();
@@ -657,6 +660,7 @@ public sealed class LibraryRepository(Database database)
             Id = reader.GetString(0),
             Title = reader.GetString(1),
             Subtitle = reader.IsDBNull(2) ? null : reader.GetString(2),
+            Author = reader.IsDBNull(14) ? null : reader.GetString(14),
             Kind = reader.GetString(3),
             Status = reader.IsDBNull(4) ? null : reader.GetString(4),
             TotalEpisodes = reader.IsDBNull(5) ? null : reader.GetInt32(5),

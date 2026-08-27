@@ -58,7 +58,7 @@ public sealed class DatabaseMigrationTests
     }
 
     [Fact]
-    public async Task VersionTwoMigration_RepairsLegacyExperienceOnceAndAdvancesSchema()
+    public async Task CurrentMigration_RepairsLegacyExperienceOnceAndAddsAuthorColumn()
     {
         var root = Path.Combine(Path.GetTempPath(), "QuietShelf-Tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -75,7 +75,9 @@ public sealed class DatabaseMigrationTests
             await using (var connection = new SqliteConnection(database.ConnectionString))
             {
                 await connection.OpenAsync();
-                Assert.Equal(2L, await ScalarInt64Async(connection, "PRAGMA user_version;"));
+                Assert.Equal(3L, await ScalarInt64Async(connection, "PRAGMA user_version;"));
+                Assert.Equal(1L, await ScalarInt64Async(connection, "SELECT COUNT(*) FROM pragma_table_info('works') WHERE name='author';"));
+                Assert.Equal(1L, await ScalarInt64Async(connection, "SELECT COUNT(*) FROM works WHERE id='work-active' AND author IS NULL;"));
                 var reset = connection.CreateCommand();
                 reset.CommandText = "UPDATE experiences SET started_on=NULL WHERE id='work-active-legacy-1';";
                 await reset.ExecuteNonQueryAsync();
@@ -109,7 +111,7 @@ public sealed class DatabaseMigrationTests
             await using (var current = new SqliteConnection(database.ConnectionString))
             {
                 await current.OpenAsync();
-                Assert.Equal(2L, await ScalarInt64Async(current, "PRAGMA user_version;"));
+                Assert.Equal(3L, await ScalarInt64Async(current, "PRAGMA user_version;"));
                 Assert.Equal(3L, await ScalarInt64Async(current, "SELECT allure FROM experiences WHERE id='experience-1';"));
                 Assert.Equal(1L, await ScalarInt64Async(current, "SELECT COUNT(*) FROM progress_entries WHERE experience_id='experience-1';"));
 

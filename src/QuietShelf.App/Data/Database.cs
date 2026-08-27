@@ -5,7 +5,7 @@ namespace QuietShelf.Data;
 
 public sealed class Database
 {
-    private const int CurrentSchemaVersion = 2;
+    private const int CurrentSchemaVersion = 3;
     private readonly bool _databaseExisted;
 
     public Database(string? databasePath = null)
@@ -97,6 +97,7 @@ public sealed class Database
                 id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
                 subtitle TEXT NULL,
+                author TEXT NULL,
                 kind TEXT NOT NULL CHECK (kind IN ('book', 'screen')),
                 status TEXT NULL CHECK (status IS NULL OR status IN ('planned', 'in_progress', 'completed')),
                 total_episodes INTEGER NULL CHECK (total_episodes IS NULL OR total_episodes > 0),
@@ -183,6 +184,10 @@ public sealed class Database
         if (schemaVersion < 2)
         {
             await MigrateToVersion2Async(connection);
+        }
+        if (schemaVersion < 3)
+        {
+            await MigrateToVersion3Async(connection, workColumns);
         }
     }
 
@@ -307,6 +312,34 @@ public sealed class Database
 
             var updateVersion = connection.CreateCommand();
             updateVersion.CommandText = "PRAGMA user_version = 2;";
+            await updateVersion.ExecuteNonQueryAsync();
+
+            var commit = connection.CreateCommand();
+            commit.CommandText = "COMMIT;";
+            await commit.ExecuteNonQueryAsync();
+        }
+        catch
+        {
+            var rollback = connection.CreateCommand();
+            rollback.CommandText = "ROLLBACK;";
+            await rollback.ExecuteNonQueryAsync();
+            throw;
+        }
+    }
+
+    private static async Task MigrateToVersion3Async(
+        SqliteConnection connection,
+        ISet<string> workColumns)
+    {
+        var begin = connection.CreateCommand();
+        begin.CommandText = "BEGIN IMMEDIATE;";
+        await begin.ExecuteNonQueryAsync();
+        try
+        {
+            await EnsureWorkColumnAsync(connection, workColumns, "author");
+
+            var updateVersion = connection.CreateCommand();
+            updateVersion.CommandText = "PRAGMA user_version = 3;";
             await updateVersion.ExecuteNonQueryAsync();
 
             var commit = connection.CreateCommand();
@@ -477,6 +510,7 @@ public sealed class Database
         var definition = columnName switch
         {
             "subtitle" => "subtitle TEXT NULL",
+            "author" => "author TEXT NULL",
             "total_episodes" => "total_episodes INTEGER NULL CHECK (total_episodes IS NULL OR total_episodes > 0)",
             _ => throw new InvalidOperationException("Unsupported work column migration.")
         };

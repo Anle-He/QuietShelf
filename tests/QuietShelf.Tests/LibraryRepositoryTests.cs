@@ -5,6 +5,22 @@ namespace QuietShelf.Tests;
 public sealed class LibraryRepositoryTests
 {
     [Fact]
+    public async Task ScreenWork_DoesNotPersistBookAuthor()
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var work = new MediaWork
+        {
+            Title = "screen-author-test",
+            Author = "not-applicable",
+            Kind = "screen"
+        };
+
+        await context.Repository.AddWorkAsync(work);
+
+        Assert.Null((await context.Repository.GetWorkAsync(work.Id))?.Author);
+    }
+
+    [Fact]
     public async Task WorkMetadataAndCoverLifecycle_PersistsLocalAssets()
     {
         await using var context = await TempDatabase.CreateAsync();
@@ -12,6 +28,7 @@ public sealed class LibraryRepositoryTests
         {
             Title = "cover-test",
             Subtitle = "original-subtitle",
+            Author = "original-author",
             Kind = "book"
         };
         await context.Repository.AddWorkAsync(work);
@@ -21,6 +38,7 @@ public sealed class LibraryRepositoryTests
             Id = work.Id,
             Title = work.Title,
             Subtitle = "updated-subtitle",
+            Author = "updated-author",
             Kind = work.Kind,
             Status = work.Status,
             CreatedAt = work.CreatedAt
@@ -38,6 +56,7 @@ public sealed class LibraryRepositoryTests
         var storedWork = await context.Repository.GetWorkAsync(work.Id);
 
         Assert.Equal("updated-subtitle", storedWork?.Subtitle);
+        Assert.Equal("updated-author", storedWork?.Author);
         Assert.Equal(2, covers.Count);
         Assert.True(covers[0].IsPrimary);
         Assert.All(covers, cover => Assert.True(File.Exists(cover.FilePath)));

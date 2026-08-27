@@ -16,10 +16,11 @@ public partial class AddWorkWindow : Window
         {
             Title = "编辑作品信息";
             HeadingText.Text = "编辑作品信息";
-            DescriptionText.Text = "修改作品的标题和副标题。";
+            DescriptionText.Text = "修改作品的标题、副标题和作者。";
             AddButton.Content = "保存";
             TitleBox.Text = existingWork.Title;
             SubtitleBox.Text = existingWork.Subtitle ?? string.Empty;
+            AuthorBox.Text = existingWork.Author ?? string.Empty;
             KindBox.SelectedIndex = existingWork.Kind == "screen" ? 1 : 0;
             KindBox.IsEnabled = false;
         }
@@ -27,6 +28,17 @@ public partial class AddWorkWindow : Window
     }
 
     public MediaWork? Work { get; private set; }
+
+    private void KindBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (AuthorPanel is null)
+        {
+            return;
+        }
+
+        var kind = (KindBox.SelectedItem as ComboBoxItem)?.Tag?.ToString();
+        AuthorPanel.Visibility = kind == "book" ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private void TitleBox_TextChanged(object sender, TextChangedEventArgs e)
     {
@@ -47,12 +59,14 @@ public partial class AddWorkWindow : Window
             return;
         }
         var now = DateTimeOffset.Now;
+        var kind = ((ComboBoxItem)KindBox.SelectedItem).Tag?.ToString() ?? "book";
         Work = new MediaWork
         {
             Id = _existingWork?.Id ?? Guid.NewGuid().ToString("N"),
             Title = title,
             Subtitle = string.IsNullOrWhiteSpace(SubtitleBox.Text) ? null : SubtitleBox.Text.Trim(),
-            Kind = ((ComboBoxItem)KindBox.SelectedItem).Tag?.ToString() ?? "book",
+            Author = kind == "book" && !string.IsNullOrWhiteSpace(AuthorBox.Text) ? AuthorBox.Text.Trim() : null,
+            Kind = kind,
             Status = _existingWork?.Status ?? "planned",
             TotalEpisodes = _existingWork?.TotalEpisodes,
             CreatedAt = _existingWork?.CreatedAt ?? now,

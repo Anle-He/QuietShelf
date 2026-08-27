@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-        Title="添加作品" Height="510" Width="500" ResizeMode="NoResize"
+        Title="添加作品" Height="570" Width="500" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="Assets/app-icon.ico"
         Background="{StaticResource PageBrush}" FontFamily="Segoe UI, Microsoft YaHei UI">
     <Grid Margin="34">
@@ -15,7 +15,7 @@
         <ScrollViewer Grid.Row="1" Margin="0,26,0,20" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="0,0,8,0">
                 <TextBlock Text="类别" Margin="0,0,0,7" />
-                <ComboBox x:Name="KindBox" SelectedIndex="0" Height="40">
+                <ComboBox x:Name="KindBox" SelectedIndex="0" Height="40" SelectionChanged="KindBox_SelectionChanged">
                     <ComboBoxItem Tag="book" Content="书籍"/><ComboBoxItem Tag="screen" Content="影视"/>
                 </ComboBox>
                 <TextBlock Text="标题 *" Margin="0,18,0,7" />
@@ -25,6 +25,11 @@
                 <TextBlock Text="副标题（选填）" Margin="0,18,0,7" />
                 <ui:TextBox x:Name="SubtitleBox" MaxLength="300" Height="40"
                             PlaceholderText="例如：音乐与黄昏五故事集" />
+                <StackPanel x:Name="AuthorPanel">
+                    <TextBlock Text="作者（选填）" Margin="0,18,0,7" />
+                    <ui:TextBox x:Name="AuthorBox" MaxLength="200" Height="40"
+                                PlaceholderText="例如：石黑一雄" />
+                </StackPanel>
                 <TextBlock Text="加入后默认为想读 / 想看；开始记录时会自动变为进行中。"
                            Margin="0,18,0,0" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
             </StackPanel>

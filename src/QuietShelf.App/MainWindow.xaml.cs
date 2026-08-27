@@ -165,9 +165,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         var query = SearchBox?.Text.Trim() ?? string.Empty;
         var matches = _allWorks.Where(work =>
             (_kindFilter == "all" || work.Kind == _kindFilter) &&
-            (string.IsNullOrWhiteSpace(query)
-             || work.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase)
-             || (work.Subtitle?.Contains(query, StringComparison.CurrentCultureIgnoreCase) ?? false))).ToList();
+             (string.IsNullOrWhiteSpace(query)
+              || work.Title.Contains(query, StringComparison.CurrentCultureIgnoreCase)
+              || (work.Subtitle?.Contains(query, StringComparison.CurrentCultureIgnoreCase) ?? false)
+              || (work.Author?.Contains(query, StringComparison.CurrentCultureIgnoreCase) ?? false))).ToList();
 
         var selected = matches.FirstOrDefault(work => work.Id == _selectedWorkId);
         if (selected is null && matches.Count > 0 && string.IsNullOrWhiteSpace(query))
@@ -282,6 +283,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         DetailSubtitleText.Visibility = string.IsNullOrWhiteSpace(_selectedWork.Subtitle)
             ? Visibility.Collapsed
             : Visibility.Visible;
+        DetailAuthorText.Text = _selectedWork.Author ?? string.Empty;
+        DetailAuthorText.Visibility = _selectedWork.Kind == "book" && !string.IsNullOrWhiteSpace(_selectedWork.Author)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         DetailMetaText.Text = $"{_selectedWork.KindLabel} · {_selectedWork.StatusLabel} · {_selectedWork.LatestActivityLabel}";
         DetailRankText.Text = _selectedWork.AggregateRankLabel;
         DetailCountText.Text = _selectedWork.ExperienceCountLabel;

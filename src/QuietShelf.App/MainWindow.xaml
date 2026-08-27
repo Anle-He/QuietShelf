@@ -61,7 +61,7 @@
                     </Grid>
 
                     <ui:TextBox x:Name="SearchBox" Grid.Row="1" Margin="0,20,0,0" Height="42"
-                                PlaceholderText="搜索标题或副标题" TextChanged="SearchBox_TextChanged" />
+                                PlaceholderText="搜索标题、副标题或作者" TextChanged="SearchBox_TextChanged" />
 
                     <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,13,0,15">
                         <ui:Button x:Name="AllFilterButton" Content="全部" Tag="all" Appearance="Primary" Click="Filter_Click" Padding="15,5" />
@@ -225,8 +225,11 @@
                                     <TextBlock Text="作品档案" Style="{StaticResource SectionEyebrow}" Margin="0,0,0,11" />
                                     <TextBlock x:Name="DetailTitleText" FontSize="33" FontWeight="DemiBold"
                                                TextWrapping="Wrap" MaxHeight="88" />
-                                    <TextBlock x:Name="DetailSubtitleText" Margin="0,7,0,0" FontSize="18"
-                                               Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" MaxHeight="54"
+                                     <TextBlock x:Name="DetailSubtitleText" Margin="0,7,0,0" FontSize="18"
+                                                Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" MaxHeight="54"
+                                                Visibility="Collapsed" />
+                                    <TextBlock x:Name="DetailAuthorText" Margin="0,7,0,0" FontSize="14"
+                                               Foreground="{StaticResource MutedStrongBrush}" TextWrapping="Wrap"
                                                Visibility="Collapsed" />
                                     <Border Margin="0,14,0,0" Padding="10,5" CornerRadius="12"
                                             Background="#88FFFFFF" HorizontalAlignment="Left">
