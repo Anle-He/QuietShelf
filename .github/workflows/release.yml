@@ -47,8 +47,23 @@ jobs:
           dotnet build .\QuietShelf.slnx --no-restore -c Release
           dotnet test .\QuietShelf.slnx --no-build -c Release --filter "Category!=Manual&Category!=LocalData"
 
-      - name: Install pinned Inno Setup
-        run: choco install innosetup --version=6.4.3 --allow-downgrade --no-progress -y
+      - name: Verify Inno Setup 6
+        shell: pwsh
+        run: |
+          $compilerCandidates = @(
+            "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
+            'C:\Program Files (x86)\Inno Setup 6\ISCC.exe',
+            'C:\Program Files\Inno Setup 6\ISCC.exe'
+          )
+          $compiler = $compilerCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if ([string]::IsNullOrWhiteSpace($compiler)) {
+            throw 'Inno Setup 6 compiler was not found on the hosted Windows runner.'
+          }
+          $compilerVersion = (Get-Item -LiteralPath $compiler).VersionInfo.ProductVersion
+          if (-not $compilerVersion.StartsWith('6.')) {
+            throw "Expected Inno Setup 6, found version '$compilerVersion'."
+          }
+          "Using Inno Setup $compilerVersion at $compiler"
 
       - name: Build installer
         shell: pwsh
