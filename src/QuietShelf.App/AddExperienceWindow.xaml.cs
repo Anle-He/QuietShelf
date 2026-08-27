@@ -65,6 +65,13 @@ public partial class AddExperienceWindow : Window
             StartedOnPicker.Focus();
             return;
         }
+        if (_completing && completedOn is null)
+        {
+            DateError.Text = "请选择结束日期";
+            DateError.Visibility = Visibility.Visible;
+            CompletedOnPicker.Focus();
+            return;
+        }
         if (startedOn is not null && completedOn is not null && completedOn < startedOn)
         {
             DateError.Text = "结束日期不能早于开始日期";
