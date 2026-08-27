@@ -48,7 +48,7 @@ jobs:
           dotnet test .\QuietShelf.slnx --no-build -c Release --filter "Category!=Manual&Category!=LocalData"
 
       - name: Install pinned Inno Setup
-        run: choco install innosetup --version=6.4.3 --no-progress -y
+        run: choco install innosetup --version=6.4.3 --allow-downgrade --no-progress -y
 
       - name: Build installer
         shell: pwsh
