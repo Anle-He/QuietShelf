@@ -12,11 +12,11 @@ QuietShelf 是一个本地优先、低打扰的 Windows 书影音记录应用。
 - 多张本地封面，用照片堆呈现同一作品的不同版本
 - 记录、封面和迁移备份全部保存在本地
 
-QuietShelf 不包含账号、社交、推荐、广告或在线元数据抓取。当前版本为 `0.1.0-alpha`。
+QuietShelf 不包含账号、社交、推荐、广告或在线元数据抓取。当前版本为 `0.1.1` 开发预发布版。
 
 ## 安装与数据
 
-从 [Releases](https://github.com/Anle-He/QuietShelf/releases) 下载 `QuietShelf-Setup-<版本>.exe`，安装后可从开始菜单启动，并在 Windows“已安装的应用”中卸载。
+需要 Windows x64 和 [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)。从 [Releases](https://github.com/Anle-He/QuietShelf/releases) 下载 `QuietShelf-Setup-<版本>.exe`，安装后可从开始菜单启动，并在 Windows“已安装的应用”中卸载。
 
 默认数据目录：
 

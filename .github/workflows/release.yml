@@ -42,7 +42,7 @@ jobs:
       - name: Restore locked dependencies
         run: |
           dotnet restore .\QuietShelf.slnx --locked-mode
-          dotnet restore .\src\QuietShelf.App\QuietShelf.App.csproj --locked-mode -r win-x64 -p:PublishSingleFile=true -p:SelfContained=true
+          dotnet restore .\src\QuietShelf.App\QuietShelf.App.csproj --locked-mode -r win-x64 -p:PublishSingleFile=false -p:SelfContained=false
 
       - name: Build and test tagged source
         run: |
