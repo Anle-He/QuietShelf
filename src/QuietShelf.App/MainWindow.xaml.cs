@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
+using System.Windows.Media.Imaging;
 using QuietShelf.Converters;
 using QuietShelf.Data;
 using QuietShelf.Models;
@@ -274,6 +276,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _activeExperience = activeExperience;
 
         RenderCoverStack(covers);
+        ApplyHeroPalette(covers);
         DetailTitleText.Text = _selectedWork.Title;
         DetailSubtitleText.Text = _selectedWork.Subtitle ?? string.Empty;
         DetailSubtitleText.Visibility = string.IsNullOrWhiteSpace(_selectedWork.Subtitle)
@@ -323,8 +326,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             var placeholder = new Border
             {
-                Width = 108,
-                Height = 152,
+                Width = 122,
+                Height = 174,
                 CornerRadius = new CornerRadius(9),
                 Background = (Brush)FindResource("AccentSoftBrush"),
                 BorderBrush = (Brush)FindResource("DividerBrush"),
@@ -339,7 +342,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                     VerticalAlignment = VerticalAlignment.Center
                 }
             };
-            Canvas.SetLeft(placeholder, 8);
+            Canvas.SetLeft(placeholder, 9);
             Canvas.SetTop(placeholder, 8);
             DetailCoverCanvas.Children.Add(placeholder);
             AddCoverBadge("+");
@@ -352,9 +355,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             var position = Math.Min(cover.SortOrder, 2);
             var (left, top, angle) = position switch
             {
-                0 => (8d, 8d, 0d),
-                1 => (11d, 7d, 3d),
-                _ => (5d, 7d, -3d)
+                0 => (9d, 8d, 0d),
+                1 => (12d, 8d, 3d),
+                _ => (6d, 8d, -3d)
             };
             var image = new Image
             {
@@ -364,8 +367,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             };
             var card = new Border
             {
-                Width = 108,
-                Height = 152,
+                Width = 122,
+                Height = 174,
                 CornerRadius = new CornerRadius(8),
                 Background = new SolidColorBrush(Color.FromRgb(232, 236, 233)),
                 BorderBrush = (Brush)FindResource("DividerBrush"),
@@ -384,6 +387,83 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             AddCoverBadge(covers.Count.ToString());
         }
+    }
+
+    private void ApplyHeroPalette(IReadOnlyList<WorkCover> covers)
+    {
+        var accent = Color.FromRgb(47, 101, 76);
+        var coverPath = covers.FirstOrDefault()?.FilePath;
+        if (coverPath is { Length: > 0 } && File.Exists(coverPath))
+        {
+            try
+            {
+                accent = ReadCoverColor(coverPath);
+            }
+            catch
+            {
+                // A cover that cannot be sampled should not prevent the work from opening.
+            }
+        }
+
+        var first = Blend(accent, Color.FromRgb(247, 249, 246), 0.82);
+        var second = Blend(accent, Color.FromRgb(250, 245, 237), 0.89);
+        DetailHero.Background = new LinearGradientBrush(first, second, new Point(0, 0), new Point(1, 1));
+    }
+
+    private static Color ReadCoverColor(string filePath)
+    {
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.DecodePixelWidth = 36;
+        bitmap.UriSource = new Uri(filePath, UriKind.Absolute);
+        bitmap.EndInit();
+        bitmap.Freeze();
+
+        var converted = new FormatConvertedBitmap(bitmap, PixelFormats.Bgra32, null, 0);
+        var stride = converted.PixelWidth * 4;
+        var pixels = new byte[stride * converted.PixelHeight];
+        converted.CopyPixels(pixels, stride, 0);
+
+        double red = 0;
+        double green = 0;
+        double blue = 0;
+        double totalWeight = 0;
+        for (var index = 0; index < pixels.Length; index += 4)
+        {
+            var b = pixels[index];
+            var g = pixels[index + 1];
+            var r = pixels[index + 2];
+            var alpha = pixels[index + 3];
+            var brightest = Math.Max(r, Math.Max(g, b));
+            var darkest = Math.Min(r, Math.Min(g, b));
+            if (alpha < 128 || brightest > 246 || brightest < 18)
+            {
+                continue;
+            }
+
+            var saturation = (brightest - darkest) / 255d;
+            var weight = 1d + saturation * 2.5d;
+            red += r * weight;
+            green += g * weight;
+            blue += b * weight;
+            totalWeight += weight;
+        }
+
+        return totalWeight < 1
+            ? Color.FromRgb(47, 101, 76)
+            : Color.FromRgb(
+                (byte)Math.Clamp(red / totalWeight, 0, 255),
+                (byte)Math.Clamp(green / totalWeight, 0, 255),
+                (byte)Math.Clamp(blue / totalWeight, 0, 255));
+    }
+
+    private static Color Blend(Color source, Color target, double targetAmount)
+    {
+        return Color.FromRgb(
+            (byte)Math.Round(source.R + (target.R - source.R) * targetAmount),
+            (byte)Math.Round(source.G + (target.G - source.G) * targetAmount),
+            (byte)Math.Round(source.B + (target.B - source.B) * targetAmount));
     }
 
     private void AddCoverBadge(string text)
