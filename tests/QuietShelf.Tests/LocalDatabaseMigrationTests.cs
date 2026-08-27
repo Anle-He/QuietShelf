@@ -16,11 +16,11 @@ public sealed class LocalDatabaseMigrationTests
         }
 
         var current = await ReadSnapshotAsync(sourcePath);
-        Assert.Equal(1, current.SchemaVersion);
+        Assert.Equal(2, current.SchemaVersion);
 
         var backupPath = Path.Combine(
             Path.GetDirectoryName(sourcePath)!,
-            $"{Path.GetFileNameWithoutExtension(sourcePath)}.pre-v1.bak");
+            $"{Path.GetFileNameWithoutExtension(sourcePath)}.pre-v2.bak");
         Assert.True(File.Exists(backupPath));
         var backup = await ReadSnapshotAsync(backupPath);
         Assert.Equal(backup.Works, current.Works);
@@ -51,13 +51,13 @@ public sealed class LocalDatabaseMigrationTests
             await database.InitializeAsync();
 
             var after = await ReadSnapshotAsync(copyPath);
-            Assert.Equal(1, after.SchemaVersion);
+            Assert.Equal(2, after.SchemaVersion);
             Assert.Equal(before.Works, after.Works);
             Assert.Equal(before.Experiences, after.Experiences);
             Assert.Equal(before.ProgressEntries, after.ProgressEntries);
             Assert.Equal(before.Covers, after.Covers);
             Assert.True(after.MaximumAllure is null or <= 3);
-            if (before.SchemaVersion < 1)
+            if (before.SchemaVersion < 2)
             {
                 Assert.True(File.Exists(database.MigrationBackupPath));
             }
