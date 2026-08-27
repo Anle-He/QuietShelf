@@ -12,7 +12,7 @@ public sealed class LocalDatabaseMigrationTests
         var sourcePath = Environment.GetEnvironmentVariable("QUIETSHELF_SOURCE_DATABASE");
         if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
         {
-            return;
+            throw Xunit.Sdk.SkipException.ForSkip("QUIETSHELF_SOURCE_DATABASE is not configured.");
         }
 
         var current = await ReadSnapshotAsync(sourcePath);
@@ -36,7 +36,7 @@ public sealed class LocalDatabaseMigrationTests
         var sourcePath = Environment.GetEnvironmentVariable("QUIETSHELF_SOURCE_DATABASE");
         if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
         {
-            return;
+            throw Xunit.Sdk.SkipException.ForSkip("QUIETSHELF_SOURCE_DATABASE is not configured.");
         }
 
         var root = Path.Combine(Path.GetTempPath(), "QuietShelf-LocalMigration-" + Guid.NewGuid().ToString("N"));
