@@ -45,6 +45,8 @@ dotnet build .\QuietShelf.slnx -c Release
 .\scripts\build-installer.ps1
 ```
 
+正式版本从标签提交构建，版本来源、产物和校验流程见 [`docs/RELEASE.md`](docs/RELEASE.md)。
+
 ## 产品边界与设计
 
 产品、交互、设计与工程决策位于 [`docs`](docs/PRODUCT.md)。界面和数据结构参考了 Openreads、LibrisLog、Yamtrack 与 WPF UI 等开源项目，但 QuietShelf 保持个人日志工具的最小边界。

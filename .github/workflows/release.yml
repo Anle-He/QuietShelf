@@ -1,0 +1,67 @@
+name: Release artifacts
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build-release-artifacts:
+    runs-on: windows-2025
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.400
+
+      - name: Verify tag matches project version
+        shell: pwsh
+        run: |
+          $projectVersion = (dotnet msbuild .\src\QuietShelf.App\QuietShelf.App.csproj -nologo -getProperty:Version).Trim()
+          $tagVersion = $env:GITHUB_REF_NAME.Substring(1)
+          if ($tagVersion -ne $projectVersion) {
+            throw "Tag version '$tagVersion' does not match project version '$projectVersion'."
+          }
+
+      - name: Restore locked dependencies
+        run: dotnet restore .\QuietShelf.slnx --locked-mode
+
+      - name: Build and test tagged source
+        run: |
+          dotnet build .\QuietShelf.slnx --no-restore -c Release
+          dotnet test .\QuietShelf.slnx --no-build -c Release --filter "Category!=Manual"
+
+      - name: Install pinned Inno Setup
+        run: choco install innosetup --version=6.4.3 --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: .\scripts\build-installer.ps1 -NoRestore
+
+      - name: Assemble release bundle and checksums
+        shell: pwsh
+        run: |
+          $version = (dotnet msbuild .\src\QuietShelf.App\QuietShelf.App.csproj -nologo -getProperty:Version).Trim()
+          $releaseDirectory = Join-Path $PWD 'artifacts\release'
+          New-Item -ItemType Directory -Path $releaseDirectory -Force | Out-Null
+          Compress-Archive -Path '.\artifacts\win-x64\*' -DestinationPath (Join-Path $releaseDirectory "QuietShelf-$version-win-x64.zip")
+          Copy-Item -LiteralPath ".\artifacts\installer\QuietShelf-Setup-$version.exe" -Destination $releaseDirectory
+          Get-ChildItem -LiteralPath $releaseDirectory -File |
+            Sort-Object Name |
+            ForEach-Object { "{0} *{1}" -f (Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash.ToLowerInvariant(), $_.Name } |
+            Set-Content -LiteralPath (Join-Path $releaseDirectory 'SHA256SUMS.txt') -Encoding ascii
+
+      - name: Upload release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: QuietShelf-${{ github.ref_name }}
+          path: artifacts/release/*
+          if-no-files-found: error
+          retention-days: 30
