@@ -157,24 +157,27 @@ public sealed class Database
         activeIndex.CommandText = "CREATE UNIQUE INDEX IF NOT EXISTS ux_experiences_one_active ON experiences (work_id) WHERE started_on IS NOT NULL AND completed_on IS NULL;";
         await activeIndex.ExecuteNonQueryAsync();
 
-        var migrate = connection.CreateCommand();
-        migrate.CommandText = """
-            INSERT OR IGNORE INTO works (id, title, kind, status, created_at, updated_at)
-            SELECT id, title, kind, status, created_at, updated_at FROM media_entries;
-
-            INSERT OR IGNORE INTO experiences
-                (id, work_id, started_on, completed_on, allure, immersion, rationality, illumination, notes, created_at, updated_at)
-            SELECT id || '-legacy-1', id, NULL, completed_on,
-                   CASE WHEN allure > 3 THEN 3 ELSE allure END,
-                   immersion, rationality, illumination, notes, created_at, updated_at
-            FROM media_entries;
-            """;
-        await migrate.ExecuteNonQueryAsync();
-
         if (schemaVersion < CurrentSchemaVersion)
         {
+            var migrate = connection.CreateCommand();
+            migrate.CommandText = """
+                INSERT OR IGNORE INTO works (id, title, kind, status, created_at, updated_at)
+                SELECT id, title, kind, status, created_at, updated_at FROM media_entries;
+
+                INSERT OR IGNORE INTO experiences
+                    (id, work_id, started_on, completed_on, allure, immersion, rationality, illumination, notes, created_at, updated_at)
+                SELECT id || '-legacy-1', id,
+                       CASE WHEN status = 'in_progress' THEN substr(created_at, 1, 10) ELSE NULL END,
+                       completed_on,
+                       CASE WHEN allure > 3 THEN 3 ELSE allure END,
+                       immersion, rationality, illumination, notes, created_at, updated_at
+                FROM media_entries;
+                """;
+            await migrate.ExecuteNonQueryAsync();
             await MigrateToVersion1Async(connection);
         }
+
+        await RepairLegacyActiveExperiencesAsync(connection);
     }
 
     private static async Task EnsureLegacyColumnAsync(SqliteConnection connection, string columnName)
@@ -252,6 +255,30 @@ public sealed class Database
         command.Parameters.AddWithValue("$tableName", tableName);
         var schema = await command.ExecuteScalarAsync() as string;
         return schema?.Contains("allure BETWEEN 1 AND 5", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private static async Task RepairLegacyActiveExperiencesAsync(SqliteConnection connection)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE experiences AS legacy
+            SET started_on = substr(legacy.created_at, 1, 10)
+            WHERE legacy.id = legacy.work_id || '-legacy-1'
+              AND legacy.started_on IS NULL
+              AND legacy.completed_on IS NULL
+              AND EXISTS (
+                  SELECT 1 FROM works AS work
+                  WHERE work.id = legacy.work_id AND work.status = 'in_progress'
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM experiences AS active
+                  WHERE active.work_id = legacy.work_id
+                    AND active.id <> legacy.id
+                    AND active.started_on IS NOT NULL
+                    AND active.completed_on IS NULL
+              );
+            """;
+        await command.ExecuteNonQueryAsync();
     }
 
     private static async Task MigrateToVersion1Async(SqliteConnection connection)
