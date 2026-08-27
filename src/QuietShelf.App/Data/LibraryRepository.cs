@@ -8,15 +8,20 @@ namespace QuietShelf.Data;
 public sealed class LibraryRepository(Database database)
 {
     private const string WorkSelect = """
-        SELECT w.id, w.title, w.subtitle, w.kind, w.status, w.total_episodes, w.created_at, w.updated_at,
+        SELECT w.id, w.title, w.subtitle, w.kind,
+               CASE
+                   WHEN SUM(CASE WHEN e.started_on IS NOT NULL AND e.completed_on IS NULL THEN 1 ELSE 0 END) > 0 THEN 'in_progress'
+                   WHEN SUM(CASE WHEN e.completed_on IS NOT NULL THEN 1 ELSE 0 END) > 0 THEN 'completed'
+                   ELSE 'planned'
+               END AS status,
+               w.total_episodes, w.created_at, w.updated_at,
                SUM(CASE WHEN e.completed_on IS NOT NULL THEN 1 ELSE 0 END) AS experience_count,
                SUM(CASE WHEN e.started_on IS NOT NULL AND e.completed_on IS NULL THEN 1 ELSE 0 END) AS active_count,
                SUM(CASE WHEN e.completed_on IS NOT NULL AND e.allure IS NOT NULL AND e.immersion IS NOT NULL
                              AND e.rationality IS NOT NULL AND e.illumination IS NOT NULL
                         THEN 1 ELSE 0 END) AS rated_count,
-               ROUND(AVG(CASE WHEN e.completed_on IS NOT NULL AND e.allure IS NOT NULL AND e.immersion IS NOT NULL
-                                   AND e.rationality IS NOT NULL AND e.illumination IS NOT NULL
-                              THEN (e.allure * 1.5 + e.immersion + e.rationality + e.illumination) / 5.0 END), 1) AS aggregate_rank,
+               ROUND(AVG(CASE WHEN e.completed_on IS NOT NULL
+                              THEN calculate_rank(e.allure, e.immersion, e.rationality, e.illumination) END), 1) AS aggregate_rank,
                MAX(COALESCE(
                    (SELECT MAX(p.logged_on) FROM progress_entries p WHERE p.experience_id = e.id),
                    e.completed_on, e.started_on, substr(e.created_at, 1, 10))) AS latest_activity,
@@ -399,6 +404,7 @@ public sealed class LibraryRepository(Database database)
 
     public async Task AddExperienceAsync(MediaExperience experience)
     {
+        RatingScale.Validate(experience);
         await using var connection = await OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
         var insert = connection.CreateCommand();
@@ -422,18 +428,17 @@ public sealed class LibraryRepository(Database database)
         insert.Parameters.AddWithValue("$updatedAt", experience.UpdatedAt.ToString("O"));
         await insert.ExecuteNonQueryAsync();
 
-        var update = connection.CreateCommand();
-        update.Transaction = (SqliteTransaction)transaction;
-        update.CommandText = "UPDATE works SET status = $status, updated_at = $updatedAt WHERE id = $id;";
-        update.Parameters.AddWithValue("$status", experience.CompletedOn is null ? "in_progress" : "completed");
-        update.Parameters.AddWithValue("$updatedAt", experience.UpdatedAt.ToString("O"));
-        update.Parameters.AddWithValue("$id", experience.WorkId);
-        await update.ExecuteNonQueryAsync();
+        await RefreshWorkStatusAsync(
+            connection,
+            (SqliteTransaction)transaction,
+            experience.WorkId,
+            experience.UpdatedAt);
         await transaction.CommitAsync();
     }
 
     public async Task UpdateExperienceAsync(MediaExperience experience)
     {
+        RatingScale.Validate(experience);
         await using var connection = await OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
         var command = connection.CreateCommand();
@@ -455,13 +460,11 @@ public sealed class LibraryRepository(Database database)
         command.Parameters.AddWithValue("$updatedAt", experience.UpdatedAt.ToString("O"));
         await command.ExecuteNonQueryAsync();
 
-        var update = connection.CreateCommand();
-        update.Transaction = (SqliteTransaction)transaction;
-        update.CommandText = "UPDATE works SET status=$status, updated_at=$updatedAt WHERE id=$workId;";
-        update.Parameters.AddWithValue("$workId", experience.WorkId);
-        update.Parameters.AddWithValue("$updatedAt", experience.UpdatedAt.ToString("O"));
-        update.Parameters.AddWithValue("$status", experience.CompletedOn is null ? "in_progress" : "completed");
-        await update.ExecuteNonQueryAsync();
+        await RefreshWorkStatusAsync(
+            connection,
+            (SqliteTransaction)transaction,
+            experience.WorkId,
+            experience.UpdatedAt);
         await transaction.CommitAsync();
     }
 
@@ -476,21 +479,11 @@ public sealed class LibraryRepository(Database database)
         delete.Parameters.AddWithValue("$workId", workId);
         await delete.ExecuteNonQueryAsync();
 
-        var update = connection.CreateCommand();
-        update.Transaction = (SqliteTransaction)transaction;
-        update.CommandText = """
-            UPDATE works SET
-                status = CASE
-                    WHEN EXISTS (SELECT 1 FROM experiences WHERE work_id=$workId AND started_on IS NOT NULL AND completed_on IS NULL) THEN 'in_progress'
-                    WHEN EXISTS (SELECT 1 FROM experiences WHERE work_id=$workId AND completed_on IS NOT NULL) THEN 'completed'
-                    ELSE 'planned'
-                END,
-                updated_at=$updatedAt
-            WHERE id=$workId;
-            """;
-        update.Parameters.AddWithValue("$workId", workId);
-        update.Parameters.AddWithValue("$updatedAt", DateTimeOffset.Now.ToString("O"));
-        await update.ExecuteNonQueryAsync();
+        await RefreshWorkStatusAsync(
+            connection,
+            (SqliteTransaction)transaction,
+            workId,
+            DateTimeOffset.Now);
         await transaction.CommitAsync();
     }
 
@@ -577,10 +570,42 @@ public sealed class LibraryRepository(Database database)
         await update.ExecuteNonQueryAsync();
     }
 
+    private static async Task RefreshWorkStatusAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string workId,
+        DateTimeOffset updatedAt)
+    {
+        var update = connection.CreateCommand();
+        update.Transaction = transaction;
+        update.CommandText = """
+            UPDATE works SET
+                status = CASE
+                    WHEN EXISTS (
+                        SELECT 1 FROM experiences
+                        WHERE work_id=$workId AND started_on IS NOT NULL AND completed_on IS NULL
+                    ) THEN 'in_progress'
+                    WHEN EXISTS (
+                        SELECT 1 FROM experiences
+                        WHERE work_id=$workId AND completed_on IS NOT NULL
+                    ) THEN 'completed'
+                    ELSE 'planned'
+                END,
+                updated_at=$updatedAt
+            WHERE id=$workId;
+            """;
+        update.Parameters.AddWithValue("$workId", workId);
+        update.Parameters.AddWithValue("$updatedAt", updatedAt.ToString("O"));
+        await update.ExecuteNonQueryAsync();
+    }
+
     private async Task<SqliteConnection> OpenAsync()
     {
         var connection = new SqliteConnection(database.ConnectionString);
         await connection.OpenAsync();
+        connection.CreateFunction<int?, int?, int?, int?, double?>(
+            "calculate_rank",
+            RatingScale.Calculate);
         var pragma = connection.CreateCommand();
         pragma.CommandText = "PRAGMA foreign_keys = ON;";
         await pragma.ExecuteNonQueryAsync();

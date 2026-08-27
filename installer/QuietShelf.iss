@@ -1,9 +1,9 @@
 #ifndef AppVersion
-  #define AppVersion "0.1.0-alpha"
+  #error AppVersion must be supplied by scripts/build-installer.ps1
 #endif
 
 #ifndef AppNumericVersion
-  #define AppNumericVersion "0.1.0.0"
+  #error AppNumericVersion must be supplied by scripts/build-installer.ps1
 #endif
 
 [Setup]

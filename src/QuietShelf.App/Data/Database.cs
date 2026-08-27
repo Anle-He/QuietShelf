@@ -5,9 +5,13 @@ namespace QuietShelf.Data;
 
 public sealed class Database
 {
+    private const int CurrentSchemaVersion = 1;
+    private readonly bool _databaseExisted;
+
     public Database(string? databasePath = null)
     {
         DatabasePath = Path.GetFullPath(databasePath ?? GetDefaultPath());
+        _databaseExisted = File.Exists(DatabasePath);
         DataDirectory = Path.GetDirectoryName(DatabasePath)!;
         CoversDirectory = Path.Combine(DataDirectory, "covers");
         Directory.CreateDirectory(DataDirectory);
@@ -23,6 +27,9 @@ public sealed class Database
     public string DatabasePath { get; }
     public string DataDirectory { get; }
     public string CoversDirectory { get; }
+    public string MigrationBackupPath => Path.Combine(
+        DataDirectory,
+        $"{Path.GetFileNameWithoutExtension(DatabasePath)}.pre-v{CurrentSchemaVersion}.bak");
 
     public string GetCoverDirectory(string workId)
     {
@@ -54,6 +61,16 @@ public sealed class Database
         await using var connection = new SqliteConnection(ConnectionString);
         await connection.OpenAsync();
 
+        var schemaVersion = await GetSchemaVersionAsync(connection);
+        if (schemaVersion > CurrentSchemaVersion)
+        {
+            throw new InvalidOperationException($"Database schema version {schemaVersion} is newer than this application supports.");
+        }
+        if (schemaVersion < CurrentSchemaVersion && _databaseExisted && await HasUserTablesAsync(connection))
+        {
+            CreateMigrationBackup(connection);
+        }
+
         var command = connection.CreateCommand();
         command.CommandText = """
             PRAGMA journal_mode = WAL;
@@ -67,7 +84,7 @@ public sealed class Database
                 status TEXT NULL CHECK (status IS NULL OR status IN ('planned', 'in_progress', 'completed')),
                 completed_on TEXT NULL,
                 rating INTEGER NULL CHECK (rating IS NULL OR rating BETWEEN 1 AND 5),
-                allure INTEGER NULL CHECK (allure IS NULL OR allure BETWEEN 1 AND 5),
+                allure INTEGER NULL CHECK (allure IS NULL OR allure BETWEEN 1 AND 3),
                 immersion INTEGER NULL CHECK (immersion IS NULL OR immersion BETWEEN 1 AND 5),
                 rationality INTEGER NULL CHECK (rationality IS NULL OR rationality BETWEEN 1 AND 5),
                 illumination INTEGER NULL CHECK (illumination IS NULL OR illumination BETWEEN 1 AND 5),
@@ -92,7 +109,7 @@ public sealed class Database
                 work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
                 started_on TEXT NULL,
                 completed_on TEXT NULL,
-                allure INTEGER NULL CHECK (allure IS NULL OR allure BETWEEN 1 AND 5),
+                allure INTEGER NULL CHECK (allure IS NULL OR allure BETWEEN 1 AND 3),
                 immersion INTEGER NULL CHECK (immersion IS NULL OR immersion BETWEEN 1 AND 5),
                 rationality INTEGER NULL CHECK (rationality IS NULL OR rationality BETWEEN 1 AND 5),
                 illumination INTEGER NULL CHECK (illumination IS NULL OR illumination BETWEEN 1 AND 5),
@@ -147,10 +164,17 @@ public sealed class Database
 
             INSERT OR IGNORE INTO experiences
                 (id, work_id, started_on, completed_on, allure, immersion, rationality, illumination, notes, created_at, updated_at)
-            SELECT id || '-legacy-1', id, NULL, completed_on, allure, immersion, rationality, illumination, notes, created_at, updated_at
+            SELECT id || '-legacy-1', id, NULL, completed_on,
+                   CASE WHEN allure > 3 THEN 3 ELSE allure END,
+                   immersion, rationality, illumination, notes, created_at, updated_at
             FROM media_entries;
             """;
         await migrate.ExecuteNonQueryAsync();
+
+        if (schemaVersion < CurrentSchemaVersion)
+        {
+            await MigrateToVersion1Async(connection);
+        }
     }
 
     private static async Task EnsureLegacyColumnAsync(SqliteConnection connection, string columnName)
@@ -184,9 +208,172 @@ public sealed class Database
             throw new InvalidOperationException("Unsupported database column migration.");
         }
 
+        var maximum = string.Equals(columnName, "allure", StringComparison.Ordinal) ? 3 : 5;
         var alter = connection.CreateCommand();
-        alter.CommandText = $"ALTER TABLE media_entries ADD COLUMN {columnName} INTEGER NULL CHECK ({columnName} IS NULL OR {columnName} BETWEEN 1 AND 5);";
+        alter.CommandText = $"ALTER TABLE media_entries ADD COLUMN {columnName} INTEGER NULL CHECK ({columnName} IS NULL OR {columnName} BETWEEN 1 AND {maximum});";
         await alter.ExecuteNonQueryAsync();
+    }
+
+    private void CreateMigrationBackup(SqliteConnection source)
+    {
+        if (File.Exists(MigrationBackupPath))
+        {
+            return;
+        }
+
+        var backupConnectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = MigrationBackupPath,
+            Mode = SqliteOpenMode.ReadWriteCreate
+        }.ToString();
+        using var destination = new SqliteConnection(backupConnectionString);
+        destination.Open();
+        source.BackupDatabase(destination);
+    }
+
+    private static async Task<int> GetSchemaVersionAsync(SqliteConnection connection)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = "PRAGMA user_version;";
+        return Convert.ToInt32(await command.ExecuteScalarAsync());
+    }
+
+    private static async Task<bool> HasUserTablesAsync(SqliteConnection connection)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%');";
+        return Convert.ToInt32(await command.ExecuteScalarAsync()) == 1;
+    }
+
+    private static async Task<bool> UsesLegacyAllureConstraintAsync(SqliteConnection connection, string tableName)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT sql FROM sqlite_master WHERE type='table' AND name=$tableName;";
+        command.Parameters.AddWithValue("$tableName", tableName);
+        var schema = await command.ExecuteScalarAsync() as string;
+        return schema?.Contains("allure BETWEEN 1 AND 5", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
+    private static async Task MigrateToVersion1Async(SqliteConnection connection)
+    {
+        var disableForeignKeys = connection.CreateCommand();
+        disableForeignKeys.CommandText = "PRAGMA foreign_keys = OFF;";
+        await disableForeignKeys.ExecuteNonQueryAsync();
+
+        var begin = connection.CreateCommand();
+        begin.CommandText = "BEGIN IMMEDIATE;";
+        await begin.ExecuteNonQueryAsync();
+        try
+        {
+            if (await UsesLegacyAllureConstraintAsync(connection, "media_entries"))
+            {
+                await RebuildLegacyEntriesAsync(connection);
+            }
+            if (await UsesLegacyAllureConstraintAsync(connection, "experiences"))
+            {
+                await RebuildExperiencesAsync(connection);
+            }
+
+            var finalizeSchema = connection.CreateCommand();
+            finalizeSchema.CommandText = """
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_experiences_one_active
+                    ON experiences (work_id) WHERE started_on IS NOT NULL AND completed_on IS NULL;
+                CREATE INDEX IF NOT EXISTS ix_experiences_work_date
+                    ON experiences (work_id, completed_on DESC, created_at DESC);
+                PRAGMA user_version = 1;
+                """;
+            await finalizeSchema.ExecuteNonQueryAsync();
+
+            var foreignKeyCheck = connection.CreateCommand();
+            foreignKeyCheck.CommandText = "PRAGMA foreign_key_check;";
+            await using (var reader = await foreignKeyCheck.ExecuteReaderAsync())
+            {
+                if (await reader.ReadAsync())
+                {
+                    throw new InvalidOperationException("Database migration failed its foreign-key integrity check.");
+                }
+            }
+
+            var commit = connection.CreateCommand();
+            commit.CommandText = "COMMIT;";
+            await commit.ExecuteNonQueryAsync();
+        }
+        catch
+        {
+            var rollback = connection.CreateCommand();
+            rollback.CommandText = "ROLLBACK;";
+            await rollback.ExecuteNonQueryAsync();
+            throw;
+        }
+        finally
+        {
+            var enableForeignKeys = connection.CreateCommand();
+            enableForeignKeys.CommandText = "PRAGMA foreign_keys = ON;";
+            await enableForeignKeys.ExecuteNonQueryAsync();
+        }
+
+    }
+
+    private static async Task RebuildLegacyEntriesAsync(SqliteConnection connection)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            DROP TABLE IF EXISTS media_entries_v1;
+            CREATE TABLE media_entries_v1 (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                kind TEXT NOT NULL CHECK (kind IN ('book', 'screen')),
+                status TEXT NULL CHECK (status IS NULL OR status IN ('planned', 'in_progress', 'completed')),
+                completed_on TEXT NULL,
+                rating INTEGER NULL CHECK (rating IS NULL OR rating BETWEEN 1 AND 5),
+                allure INTEGER NULL CHECK (allure IS NULL OR allure BETWEEN 1 AND 3),
+                immersion INTEGER NULL CHECK (immersion IS NULL OR immersion BETWEEN 1 AND 5),
+                rationality INTEGER NULL CHECK (rationality IS NULL OR rationality BETWEEN 1 AND 5),
+                illumination INTEGER NULL CHECK (illumination IS NULL OR illumination BETWEEN 1 AND 5),
+                notes TEXT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            INSERT INTO media_entries_v1
+                (id, title, kind, status, completed_on, rating, allure, immersion, rationality, illumination, notes, created_at, updated_at)
+            SELECT id, title, kind, status, completed_on, rating,
+                   CASE WHEN allure > 3 THEN 3 ELSE allure END,
+                   immersion, rationality, illumination, notes, created_at, updated_at
+            FROM media_entries;
+            DROP TABLE media_entries;
+            ALTER TABLE media_entries_v1 RENAME TO media_entries;
+            """;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task RebuildExperiencesAsync(SqliteConnection connection)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            DROP TABLE IF EXISTS experiences_v1;
+            CREATE TABLE experiences_v1 (
+                id TEXT PRIMARY KEY,
+                work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+                started_on TEXT NULL,
+                completed_on TEXT NULL,
+                allure INTEGER NULL CHECK (allure IS NULL OR allure BETWEEN 1 AND 3),
+                immersion INTEGER NULL CHECK (immersion IS NULL OR immersion BETWEEN 1 AND 5),
+                rationality INTEGER NULL CHECK (rationality IS NULL OR rationality BETWEEN 1 AND 5),
+                illumination INTEGER NULL CHECK (illumination IS NULL OR illumination BETWEEN 1 AND 5),
+                notes TEXT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            INSERT INTO experiences_v1
+                (id, work_id, started_on, completed_on, allure, immersion, rationality, illumination, notes, created_at, updated_at)
+            SELECT id, work_id, started_on, completed_on,
+                   CASE WHEN allure > 3 THEN 3 ELSE allure END,
+                   immersion, rationality, illumination, notes, created_at, updated_at
+            FROM experiences;
+            DROP TABLE experiences;
+            ALTER TABLE experiences_v1 RENAME TO experiences;
+            """;
+        await command.ExecuteNonQueryAsync();
     }
 
     private static async Task EnsureExperienceColumnAsync(SqliteConnection connection, string columnName)

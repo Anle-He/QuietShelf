@@ -2,85 +2,181 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-        Title="管理封面" Width="820" Height="650" MinWidth="680" MinHeight="520"
+        Title="封面画廊" Width="900" Height="680" MinWidth="720" MinHeight="540"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="Assets/app-icon.ico"
-        Background="{StaticResource PageBrush}" FontFamily="Segoe UI, Microsoft YaHei UI">
-    <Grid Margin="30">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+        Background="{StaticResource PageBrush}" FontFamily="Segoe UI Variable Text, Segoe UI, Microsoft YaHei UI">
+    <Grid>
+        <Grid Margin="32,28,32,30">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-        <Grid>
-            <StackPanel>
-                <TextBlock Text="封面" FontSize="27" FontWeight="SemiBold" />
-                <TextBlock x:Name="CoverCountText" Margin="0,7,0,0" Foreground="{StaticResource MutedBrush}" />
-            </StackPanel>
-            <ui:Button HorizontalAlignment="Right" VerticalAlignment="Center" Appearance="Primary"
-                       Content="添加封面" Icon="{ui:SymbolIcon Add24}" Click="AddCovers_Click" />
-        </Grid>
-
-        <Grid Grid.Row="1" Margin="0,24,0,20">
-            <Border x:Name="EmptyState" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource DividerBrush}"
-                    BorderThickness="1" CornerRadius="{StaticResource CardRadius}" Padding="28">
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <ui:SymbolIcon Symbol="Image24" FontSize="34" Foreground="{StaticResource AccentBrush}"
-                                   HorizontalAlignment="Center" />
-                    <TextBlock Text="还没有封面" Margin="0,16,0,0" FontSize="18" FontWeight="DemiBold"
-                               HorizontalAlignment="Center" />
-                    <TextBlock Text="添加不同版本的封面，它们会像一叠照片一样展示。" Margin="0,7,0,0"
-                               Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" />
+            <Grid>
+                <StackPanel>
+                    <TextBlock Text="封面画廊" FontSize="27" FontWeight="DemiBold" />
+                    <TextBlock x:Name="CoverCountText" Margin="0,7,0,0" Foreground="{StaticResource MutedBrush}" />
                 </StackPanel>
-            </Border>
+                <ui:Button HorizontalAlignment="Right" VerticalAlignment="Center" Appearance="Primary"
+                           Content="添加封面" Icon="{ui:SymbolIcon Add24}" Click="AddCovers_Click" />
+            </Grid>
 
-            <ScrollViewer x:Name="CoverScroll" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled">
-                <ItemsControl ItemsSource="{Binding Covers}">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Width="168" Margin="0,0,14,14" Padding="10" Background="{StaticResource SurfaceBrush}"
-                                    BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" CornerRadius="12">
-                                <StackPanel>
-                                    <Border Width="132" Height="186" HorizontalAlignment="Center"
-                                            Background="#E8ECE9" BorderBrush="{StaticResource DividerBrush}"
-                                            BorderThickness="1" CornerRadius="8" ClipToBounds="True">
-                                        <Image Source="{Binding FilePath, Converter={StaticResource CoverImageConverter}}"
-                                               Stretch="Uniform" Margin="3" />
+            <Grid Grid.Row="1" Margin="0,24,0,0">
+                <Border x:Name="EmptyState" Background="{StaticResource SurfaceBrush}"
+                        BorderBrush="{StaticResource DividerBrush}" BorderThickness="1"
+                        CornerRadius="16" Padding="32">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Border Width="78" Height="96" CornerRadius="10" Background="{StaticResource AccentSoftBrush}"
+                                BorderBrush="#BCD1C3" BorderThickness="1">
+                            <ui:SymbolIcon Symbol="Image24" FontSize="31" Foreground="{StaticResource AccentBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="为作品添一张封面" Margin="0,18,0,0" FontSize="19" FontWeight="DemiBold"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="不同版本可以保留不同封面，并按喜欢的顺序陈列。" Margin="0,7,0,18"
+                                   Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" />
+                        <ui:Button Content="选择图片" Appearance="Primary" Icon="{ui:SymbolIcon Add24}"
+                                   Click="AddCovers_Click" />
+                    </StackPanel>
+                </Border>
+
+                <ScrollViewer x:Name="CoverScroll" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled" Padding="1,1,8,8">
+                    <ItemsControl ItemsSource="{Binding Covers}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel ItemWidth="196" ItemHeight="266" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid x:Name="CoverTile" Width="180" Height="250" Margin="0,0,16,16"
+                                      Cursor="Hand" ToolTip="单击查看大图">
+                                    <Border x:Name="CoverFrame" Background="{StaticResource SurfaceBrush}"
+                                            BorderBrush="{StaticResource DividerBrush}" BorderThickness="1"
+                                            CornerRadius="12" Padding="9">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+
+                                            <Border Background="#E8ECE9" CornerRadius="8" ClipToBounds="True"
+                                                    Tag="{Binding}" MouseLeftButtonUp="PreviewCover_Click">
+                                                <Image Source="{Binding FilePath, Converter={StaticResource CoverImageConverter}}"
+                                                       Stretch="Uniform" Margin="3" />
+                                            </Border>
+
+                                            <Grid Grid.Row="1" Margin="3,10,3,1">
+                                                <TextBlock Text="{Binding PositionLabel}" FontSize="13"
+                                                           FontWeight="DemiBold" />
+                                                <TextBlock Text="点击预览" HorizontalAlignment="Right" FontSize="12"
+                                                           Foreground="{StaticResource MutedBrush}" />
+                                            </Grid>
+                                        </Grid>
                                     </Border>
-                                    <TextBlock Text="{Binding PositionLabel}" Margin="2,10,2,0" FontWeight="DemiBold" />
-                                    <ui:Button Content="设为主封面" Margin="0,9,0,0" Tag="{Binding}"
-                                               Appearance="Secondary" Click="SetPrimary_Click">
-                                        <ui:Button.Style>
-                                            <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
-                                                <Setter Property="IsEnabled" Value="True" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsPrimary}" Value="True">
-                                                        <Setter Property="IsEnabled" Value="False" />
-                                                        <Setter Property="Content" Value="当前主封面" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </ui:Button.Style>
-                                    </ui:Button>
-                                    <Grid Margin="0,7,0,0">
-                                        <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                        <ui:Button Content="前移" Tag="{Binding}" Click="MoveEarlier_Click" />
-                                        <ui:Button Grid.Column="1" Content="后移" Margin="5,0" Tag="{Binding}" Click="MoveLater_Click" />
-                                        <ui:Button Grid.Column="2" Icon="{ui:SymbolIcon Delete24}" ToolTip="删除封面"
-                                                   Tag="{Binding}" Click="DeleteCover_Click" />
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+
+                                    <Border x:Name="PrimaryBadge" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            Margin="0,10,10,0" Padding="9,4" CornerRadius="11"
+                                            Background="{StaticResource AccentBrush}" Visibility="Collapsed">
+                                        <TextBlock Text="主封面" Foreground="White" FontSize="11" FontWeight="DemiBold" />
+                                    </Border>
+
+                                    <Border x:Name="ActionOverlay" VerticalAlignment="Bottom" Margin="10,0,10,42"
+                                            Padding="8" CornerRadius="9" Background="#EAF7FAF8"
+                                            BorderBrush="#D3E2D9" BorderThickness="1" Visibility="Collapsed">
+                                        <StackPanel>
+                                            <ui:Button Content="设为主封面" Height="34" Tag="{Binding}"
+                                                       Appearance="Primary" Click="SetPrimary_Click">
+                                                <ui:Button.Style>
+                                                    <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsPrimary}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ui:Button.Style>
+                                            </ui:Button>
+                                            <StackPanel Margin="0,7,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <ui:Button ToolTip="向前移动" Icon="{ui:SymbolIcon ArrowLeft24}"
+                                                           Tag="{Binding}" Click="MoveEarlier_Click">
+                                                    <ui:Button.Style>
+                                                        <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding DataContext.Covers.Count, RelativeSource={RelativeSource AncestorType=Window}}" Value="1">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </ui:Button.Style>
+                                                </ui:Button>
+                                                <ui:Button Margin="6,0" ToolTip="向后移动"
+                                                           Icon="{ui:SymbolIcon ArrowRight24}" Tag="{Binding}"
+                                                           Click="MoveLater_Click">
+                                                    <ui:Button.Style>
+                                                        <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding DataContext.Covers.Count, RelativeSource={RelativeSource AncestorType=Window}}" Value="1">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </ui:Button.Style>
+                                                </ui:Button>
+                                                <ui:Button ToolTip="删除封面" Icon="{ui:SymbolIcon Delete24}"
+                                                           Tag="{Binding}" Click="DeleteCover_Click" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsPrimary}" Value="True">
+                                        <Setter TargetName="CoverFrame" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                        <Setter TargetName="CoverFrame" Property="BorderThickness" Value="2" />
+                                        <Setter TargetName="PrimaryBadge" Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <Trigger SourceName="CoverTile" Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="CoverFrame" Property="Background" Value="#F8FBF9" />
+                                        <Setter TargetName="ActionOverlay" Property="Visibility" Value="Visible" />
+                                    </Trigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
         </Grid>
 
-        <ui:Button Grid.Row="2" HorizontalAlignment="Right" Content="完成" Appearance="Primary" Click="Close_Click" />
+        <Grid x:Name="PreviewOverlay" Background="#B8151A17" Visibility="Collapsed"
+              MouseLeftButtonUp="ClosePreview_Click">
+            <Border Width="500" MaxHeight="590" Padding="24" Background="{StaticResource SurfaceBrush}"
+                    CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    MouseLeftButtonUp="PreviewPanel_Click">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <StackPanel>
+                            <TextBlock Text="封面预览" FontSize="19" FontWeight="DemiBold" />
+                            <TextBlock x:Name="PreviewCaptionText" Margin="0,5,0,0"
+                                       Foreground="{StaticResource MutedBrush}" />
+                        </StackPanel>
+                        <ui:Button HorizontalAlignment="Right" VerticalAlignment="Top"
+                                   Icon="{ui:SymbolIcon Dismiss24}" ToolTip="关闭预览"
+                                   Appearance="Transparent" Click="ClosePreview_Click" />
+                    </Grid>
+                    <Border Grid.Row="1" Margin="0,20,0,0" MinHeight="360" Background="#E8ECE9"
+                            CornerRadius="10" ClipToBounds="True">
+                        <Image x:Name="PreviewImage" Stretch="Uniform" Margin="8" />
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </Window>
