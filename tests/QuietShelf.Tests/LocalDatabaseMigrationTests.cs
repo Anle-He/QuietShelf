@@ -7,6 +7,30 @@ public sealed class LocalDatabaseMigrationTests
 {
     [Fact]
     [Trait("Category", "LocalData")]
+    public async Task ConfiguredSourceDatabase_HasCurrentSchemaAndPreservedCounts()
+    {
+        var sourcePath = Environment.GetEnvironmentVariable("QUIETSHELF_SOURCE_DATABASE");
+        if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+        {
+            return;
+        }
+
+        var current = await ReadSnapshotAsync(sourcePath);
+        Assert.Equal(1, current.SchemaVersion);
+
+        var backupPath = Path.Combine(
+            Path.GetDirectoryName(sourcePath)!,
+            $"{Path.GetFileNameWithoutExtension(sourcePath)}.pre-v1.bak");
+        Assert.True(File.Exists(backupPath));
+        var backup = await ReadSnapshotAsync(backupPath);
+        Assert.Equal(backup.Works, current.Works);
+        Assert.Equal(backup.Experiences, current.Experiences);
+        Assert.Equal(backup.ProgressEntries, current.ProgressEntries);
+        Assert.Equal(backup.Covers, current.Covers);
+    }
+
+    [Fact]
+    [Trait("Category", "LocalData")]
     public async Task ConfiguredDatabaseCopy_MigratesWithoutChangingRecordCounts()
     {
         var sourcePath = Environment.GetEnvironmentVariable("QUIETSHELF_SOURCE_DATABASE");
