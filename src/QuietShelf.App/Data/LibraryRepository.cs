@@ -7,6 +7,19 @@ namespace QuietShelf.Data;
 
 public sealed class LibraryRepository(Database database)
 {
+    private const string ExperienceSelect = """
+        SELECT e.id, e.work_id, e.started_on, e.completed_on, e.allure, e.immersion, e.rationality, e.illumination,
+               e.notes, e.created_at, e.updated_at,
+               COUNT(DISTINCT p.logged_on),
+               COUNT(p.id),
+               COALESCE(SUM(CASE WHEN p.metric = 'duration' THEN p.amount ELSE 0 END), 0),
+               COALESCE(SUM(CASE WHEN p.metric = 'episodes' THEN p.amount ELSE 0 END), 0),
+               w.total_episodes
+        FROM experiences e
+        JOIN works w ON w.id = e.work_id
+        LEFT JOIN progress_entries p ON p.experience_id = e.id
+        """;
+
     private const string WorkSelect = """
         SELECT w.id, w.title, w.subtitle, w.kind,
                CASE
@@ -69,17 +82,7 @@ public sealed class LibraryRepository(Database database)
         var experiences = new List<MediaExperience>();
         await using var connection = await OpenAsync();
         var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT e.id, e.work_id, e.started_on, e.completed_on, e.allure, e.immersion, e.rationality, e.illumination,
-                   e.notes, e.created_at, e.updated_at,
-                   COUNT(DISTINCT p.logged_on),
-                   COUNT(p.id),
-                   COALESCE(SUM(CASE WHEN p.metric = 'duration' THEN p.amount ELSE 0 END), 0),
-                   COALESCE(SUM(CASE WHEN p.metric = 'episodes' THEN p.amount ELSE 0 END), 0),
-                   w.total_episodes
-            FROM experiences e
-            JOIN works w ON w.id = e.work_id
-            LEFT JOIN progress_entries p ON p.experience_id = e.id
+        command.CommandText = ExperienceSelect + "\n" + """
             WHERE e.work_id = $workId
             GROUP BY e.id
             ORDER BY COALESCE(e.completed_on, e.started_on, substr(e.created_at, 1, 10)) DESC, e.created_at DESC;
@@ -88,25 +91,25 @@ public sealed class LibraryRepository(Database database)
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            experiences.Add(new MediaExperience
-            {
-                Id = reader.GetString(0),
-                WorkId = reader.GetString(1),
-                StartedOn = reader.IsDBNull(2) ? null : DateOnly.Parse(reader.GetString(2), CultureInfo.InvariantCulture),
-                CompletedOn = reader.IsDBNull(3) ? null : DateOnly.Parse(reader.GetString(3), CultureInfo.InvariantCulture),
-                Allure = reader.IsDBNull(4) ? null : reader.GetInt32(4),
-                Immersion = reader.IsDBNull(5) ? null : reader.GetInt32(5),
-                Rationality = reader.IsDBNull(6) ? null : reader.GetInt32(6),
-                Illumination = reader.IsDBNull(7) ? null : reader.GetInt32(7),
-                Notes = reader.IsDBNull(8) ? null : reader.GetString(8),
-                CreatedAt = DateTimeOffset.Parse(reader.GetString(9), CultureInfo.InvariantCulture),
-                UpdatedAt = DateTimeOffset.Parse(reader.GetString(10), CultureInfo.InvariantCulture),
-                ProgressDayCount = reader.GetInt32(11),
-                ProgressEntryCount = reader.GetInt32(12),
-                TotalMinutes = reader.GetInt32(13),
-                TotalEpisodes = reader.GetInt32(14),
-                AvailableEpisodes = reader.IsDBNull(15) ? null : reader.GetInt32(15)
-            });
+            experiences.Add(ReadExperience(reader));
+        }
+        return experiences;
+    }
+
+    public async Task<IReadOnlyDictionary<string, MediaExperience>> GetActiveExperiencesAsync()
+    {
+        var experiences = new Dictionary<string, MediaExperience>(StringComparer.Ordinal);
+        await using var connection = await OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = ExperienceSelect + "\n" + """
+            WHERE e.started_on IS NOT NULL AND e.completed_on IS NULL
+            GROUP BY e.id;
+            """;
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            var experience = ReadExperience(reader);
+            experiences[experience.WorkId] = experience;
         }
         return experiences;
     }
@@ -175,6 +178,7 @@ public sealed class LibraryRepository(Database database)
                 CreatedAt = DateTimeOffset.Parse(reader.GetString(4), CultureInfo.InvariantCulture)
             });
         }
+        ReconcileDeletedCoverFiles(workId, covers);
         return covers;
     }
 
@@ -195,6 +199,7 @@ public sealed class LibraryRepository(Database database)
         var coverDirectory = database.GetCoverDirectory(workId);
         Directory.CreateDirectory(coverDirectory);
         var staged = new List<WorkCover>();
+        var createdFiles = new List<string>();
         try
         {
             foreach (var sourcePath in sourcePaths)
@@ -212,11 +217,15 @@ public sealed class LibraryRepository(Database database)
                 var coverId = Guid.NewGuid().ToString("N");
                 var fileName = coverId + source.Extension.ToLowerInvariant();
                 var destination = database.GetCoverFilePath(workId, fileName);
+                var temporaryDestination = destination + ".adding";
+                createdFiles.Add(temporaryDestination);
                 await using (var input = source.OpenRead())
-                await using (var output = File.Create(destination))
+                await using (var output = File.Create(temporaryDestination))
                 {
                     await input.CopyToAsync(output);
                 }
+                File.Move(temporaryDestination, destination);
+                createdFiles.Add(destination);
                 staged.Add(new WorkCover
                 {
                     Id = coverId,
@@ -248,12 +257,9 @@ public sealed class LibraryRepository(Database database)
         }
         catch
         {
-            foreach (var cover in staged)
+            foreach (var path in createdFiles)
             {
-                if (File.Exists(cover.FilePath))
-                {
-                    File.Delete(cover.FilePath);
-                }
+                TryDeleteFile(path);
             }
             throw;
         }
@@ -277,6 +283,7 @@ public sealed class LibraryRepository(Database database)
         {
             File.Move(cover.FilePath, temporaryPath, overwrite: true);
         }
+        var committed = false;
         try
         {
             await using var connection = await OpenAsync();
@@ -290,24 +297,33 @@ public sealed class LibraryRepository(Database database)
             await WriteCoverOrderAsync(connection, (SqliteTransaction)transaction, workId,
                 covers.Where(item => item.Id != coverId).Select(item => item.Id).ToList());
             await transaction.CommitAsync();
-            if (File.Exists(temporaryPath))
-            {
-                File.Delete(temporaryPath);
-            }
+            committed = true;
         }
         catch
         {
-            if (File.Exists(temporaryPath))
+            if (!committed && File.Exists(temporaryPath))
             {
                 File.Move(temporaryPath, cover.FilePath, overwrite: true);
             }
             throw;
         }
+
+        TryDeleteFile(temporaryPath);
     }
 
-    public async Task<MediaExperience?> GetActiveExperienceAsync(string workId) =>
-        (await GetExperiencesAsync(workId)).FirstOrDefault(experience =>
-            experience.StartedOn is not null && experience.CompletedOn is null);
+    public async Task<MediaExperience?> GetActiveExperienceAsync(string workId)
+    {
+        await using var connection = await OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = ExperienceSelect + "\n" + """
+            WHERE e.work_id = $workId AND e.started_on IS NOT NULL AND e.completed_on IS NULL
+            GROUP BY e.id
+            LIMIT 1;
+            """;
+        command.Parameters.AddWithValue("$workId", workId);
+        await using var reader = await command.ExecuteReaderAsync();
+        return await reader.ReadAsync() ? ReadExperience(reader) : null;
+    }
 
     public async Task<IReadOnlyList<ProgressEntry>> GetProgressEntriesAsync(string experienceId)
     {
@@ -342,6 +358,7 @@ public sealed class LibraryRepository(Database database)
     public async Task AddProgressEntryAsync(ProgressEntry entry, int? totalEpisodes = null)
     {
         await using var connection = await OpenAsync();
+        await ValidateProgressEntryAsync(connection, entry, totalEpisodes);
         await using var transaction = await connection.BeginTransactionAsync();
         var insert = connection.CreateCommand();
         insert.Transaction = (SqliteTransaction)transaction;
@@ -376,6 +393,7 @@ public sealed class LibraryRepository(Database database)
     public async Task UpdateProgressEntryAsync(ProgressEntry entry, int? totalEpisodes = null)
     {
         await using var connection = await OpenAsync();
+        await ValidateProgressEntryAsync(connection, entry, totalEpisodes);
         await using var transaction = await connection.BeginTransactionAsync();
         var updateEntry = connection.CreateCommand();
         updateEntry.Transaction = (SqliteTransaction)transaction;
@@ -440,6 +458,7 @@ public sealed class LibraryRepository(Database database)
     public async Task AddExperienceAsync(MediaExperience experience)
     {
         RatingScale.Validate(experience);
+        ValidateExperienceChronology(experience);
         await using var connection = await OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
         var insert = connection.CreateCommand();
@@ -474,6 +493,7 @@ public sealed class LibraryRepository(Database database)
     public async Task UpdateExperienceAsync(MediaExperience experience)
     {
         RatingScale.Validate(experience);
+        ValidateExperienceChronology(experience);
         await using var connection = await OpenAsync();
         await using var transaction = await connection.BeginTransactionAsync();
         var command = connection.CreateCommand();
@@ -634,6 +654,118 @@ public sealed class LibraryRepository(Database database)
         await update.ExecuteNonQueryAsync();
     }
 
+    private static void ValidateExperienceChronology(MediaExperience experience)
+    {
+        if (experience.StartedOn is { } startedOn
+            && experience.CompletedOn is { } completedOn
+            && completedOn < startedOn)
+        {
+            throw new InvalidOperationException("Completion date cannot be earlier than the start date.");
+        }
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch (IOException)
+        {
+            // The database is authoritative after commit; a later cleanup can remove the staged file.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // The database is authoritative after commit; a later cleanup can remove the staged file.
+        }
+    }
+
+    private void ReconcileDeletedCoverFiles(string workId, IReadOnlyList<WorkCover> covers)
+    {
+        var directory = database.GetCoverDirectory(workId);
+        if (!Directory.Exists(directory))
+        {
+            return;
+        }
+
+        foreach (var path in Directory.EnumerateFiles(directory, "*.deleting", SearchOption.TopDirectoryOnly))
+        {
+            var originalPath = path[..^".deleting".Length];
+            if (covers.Any(cover => string.Equals(cover.FilePath, originalPath, StringComparison.OrdinalIgnoreCase)))
+            {
+                if (!File.Exists(originalPath))
+                {
+                    File.Move(path, originalPath);
+                }
+            }
+            else
+            {
+                TryDeleteFile(path);
+            }
+        }
+
+        foreach (var path in Directory.EnumerateFiles(directory, "*.adding", SearchOption.TopDirectoryOnly))
+        {
+            TryDeleteFile(path);
+        }
+
+        var referencedPaths = covers.Select(cover => cover.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
+                     .Where(path => new[] { ".jpg", ".jpeg", ".png", ".bmp" }
+                         .Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)))
+        {
+            if (!referencedPaths.Contains(path))
+            {
+                TryDeleteFile(path);
+            }
+        }
+    }
+
+    private static async Task ValidateProgressEntryAsync(
+        SqliteConnection connection,
+        ProgressEntry entry,
+        int? totalEpisodes)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT e.started_on, w.kind
+            FROM experiences e
+            JOIN works w ON w.id = e.work_id
+            WHERE e.id = $experienceId;
+            """;
+        command.Parameters.AddWithValue("$experienceId", entry.ExperienceId);
+        await using var reader = await command.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
+        {
+            throw new InvalidOperationException("The progress entry does not belong to an existing experience.");
+        }
+
+        if (reader.IsDBNull(0))
+        {
+            throw new InvalidOperationException("Progress requires an experience start date.");
+        }
+
+        var startedOn = DateOnly.Parse(reader.GetString(0), CultureInfo.InvariantCulture);
+        if (entry.LoggedOn < startedOn)
+        {
+            throw new InvalidOperationException("Progress date cannot be earlier than the experience start date.");
+        }
+
+        var workKind = reader.GetString(1);
+        if (string.Equals(entry.Metric, "episodes", StringComparison.Ordinal)
+            && !string.Equals(workKind, "screen", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Episode progress is only available for screen works.");
+        }
+        if (totalEpisodes is not null && !string.Equals(workKind, "screen", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Episode totals are only available for screen works.");
+        }
+    }
+
     private async Task<SqliteConnection> OpenAsync()
     {
         var connection = new SqliteConnection(database.ConnectionString);
@@ -678,4 +810,24 @@ public sealed class LibraryRepository(Database database)
             LatestActivityOn = reader.IsDBNull(12) ? null : DateOnly.Parse(reader.GetString(12), CultureInfo.InvariantCulture)
         };
     }
+
+    private static MediaExperience ReadExperience(SqliteDataReader reader) => new()
+    {
+        Id = reader.GetString(0),
+        WorkId = reader.GetString(1),
+        StartedOn = reader.IsDBNull(2) ? null : DateOnly.Parse(reader.GetString(2), CultureInfo.InvariantCulture),
+        CompletedOn = reader.IsDBNull(3) ? null : DateOnly.Parse(reader.GetString(3), CultureInfo.InvariantCulture),
+        Allure = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+        Immersion = reader.IsDBNull(5) ? null : reader.GetInt32(5),
+        Rationality = reader.IsDBNull(6) ? null : reader.GetInt32(6),
+        Illumination = reader.IsDBNull(7) ? null : reader.GetInt32(7),
+        Notes = reader.IsDBNull(8) ? null : reader.GetString(8),
+        CreatedAt = DateTimeOffset.Parse(reader.GetString(9), CultureInfo.InvariantCulture),
+        UpdatedAt = DateTimeOffset.Parse(reader.GetString(10), CultureInfo.InvariantCulture),
+        ProgressDayCount = reader.GetInt32(11),
+        ProgressEntryCount = reader.GetInt32(12),
+        TotalMinutes = reader.GetInt32(13),
+        TotalEpisodes = reader.GetInt32(14),
+        AvailableEpisodes = reader.IsDBNull(15) ? null : reader.GetInt32(15)
+    };
 }

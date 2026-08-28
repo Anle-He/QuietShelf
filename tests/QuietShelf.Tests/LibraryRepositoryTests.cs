@@ -88,7 +88,8 @@ public sealed class LibraryRepositoryTests
         var first = new MediaExperience
         {
             WorkId = work.Id,
-            StartedOn = new DateOnly(2026, 8, 1)
+            StartedOn = new DateOnly(2026, 8, 1),
+            CreatedAt = new DateTimeOffset(2026, 8, 1, 9, 0, 0, TimeSpan.Zero)
         };
         await context.Repository.AddExperienceAsync(first);
 
@@ -138,6 +139,7 @@ public sealed class LibraryRepositoryTests
             WorkId = work.Id,
             StartedOn = new DateOnly(2026, 8, 5),
             CompletedOn = new DateOnly(2026, 8, 10),
+            CreatedAt = new DateTimeOffset(2026, 8, 5, 9, 0, 0, TimeSpan.Zero),
             Allure = 3,
             Immersion = 5,
             Rationality = 5,
@@ -233,7 +235,8 @@ public sealed class LibraryRepositoryTests
         var experience = new MediaExperience
         {
             WorkId = work.Id,
-            StartedOn = new DateOnly(2026, 8, 1)
+            StartedOn = new DateOnly(2026, 8, 1),
+            CreatedAt = new DateTimeOffset(2026, 8, 1, 9, 0, 0, TimeSpan.Zero)
         };
         await context.Repository.AddExperienceAsync(experience);
         await context.Repository.AddProgressEntryAsync(new ProgressEntry
@@ -284,5 +287,117 @@ public sealed class LibraryRepositoryTests
         Assert.Equal(2, history[0].TotalEpisodes);
         Assert.Equal(12, history[0].AvailableEpisodes);
         Assert.Contains("已看 2 / 12 集", history[0].ProgressSummaryLabel, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CoverCleanup_ReconcilesInterruptedDeletionFiles()
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var work = new MediaWork { Title = "cover-reconcile-test", Kind = "book" };
+        await context.Repository.AddWorkAsync(work);
+        var sourcePath = Path.Combine(context.Root, "source.png");
+        await File.WriteAllBytesAsync(sourcePath, Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="));
+        await context.Repository.AddCoversAsync(work.Id, [sourcePath]);
+        var cover = Assert.Single(await context.Repository.GetCoversAsync(work.Id));
+        var stagedPath = cover.FilePath + ".deleting";
+        File.Move(cover.FilePath, stagedPath);
+
+        await context.Repository.GetCoversAsync(work.Id);
+
+        Assert.True(File.Exists(cover.FilePath));
+        Assert.False(File.Exists(stagedPath));
+
+        var orphanPath = Path.Combine(context.Database.GetCoverDirectory(work.Id), "orphan.png.deleting");
+        await File.WriteAllTextAsync(orphanPath, "orphan");
+        await context.Repository.GetCoversAsync(work.Id);
+        Assert.False(File.Exists(orphanPath));
+    }
+
+    [Fact]
+    public async Task ExperienceChronology_RejectsCompletionBeforeStart()
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var work = new MediaWork { Title = "chronology-test", Kind = "book" };
+        await context.Repository.AddWorkAsync(work);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            context.Repository.AddExperienceAsync(new MediaExperience
+            {
+                WorkId = work.Id,
+                StartedOn = new DateOnly(2026, 8, 10),
+                CompletedOn = new DateOnly(2026, 8, 9)
+            }));
+
+        Assert.Contains("Completion date", exception.Message, StringComparison.Ordinal);
+        Assert.Empty(await context.Repository.GetExperiencesAsync(work.Id));
+    }
+
+    [Fact]
+    public async Task ProgressValidation_RejectsEarlyAndBookEpisodeEntries()
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var work = new MediaWork { Title = "progress-validation-test", Kind = "book" };
+        await context.Repository.AddWorkAsync(work);
+        var experience = new MediaExperience
+        {
+            WorkId = work.Id,
+            StartedOn = new DateOnly(2026, 8, 10)
+        };
+        await context.Repository.AddExperienceAsync(experience);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            context.Repository.AddProgressEntryAsync(new ProgressEntry
+            {
+                ExperienceId = experience.Id,
+                LoggedOn = new DateOnly(2026, 8, 9),
+                Metric = "duration",
+                Amount = 10
+            }));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            context.Repository.AddProgressEntryAsync(new ProgressEntry
+            {
+                ExperienceId = experience.Id,
+                LoggedOn = new DateOnly(2026, 8, 10),
+                Metric = "episodes",
+                Amount = 1
+            }));
+
+        Assert.Empty(await context.Repository.GetProgressEntriesAsync(experience.Id));
+    }
+
+    [Fact]
+    public async Task ActiveExperiences_LoadForAllActiveWorksInOneResult()
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var firstWork = new MediaWork { Title = "active-one", Kind = "book" };
+        var secondWork = new MediaWork { Title = "active-two", Kind = "screen" };
+        var completedWork = new MediaWork { Title = "completed", Kind = "book" };
+        await context.Repository.AddWorkAsync(firstWork);
+        await context.Repository.AddWorkAsync(secondWork);
+        await context.Repository.AddWorkAsync(completedWork);
+        await context.Repository.AddExperienceAsync(new MediaExperience
+        {
+            WorkId = firstWork.Id,
+            StartedOn = new DateOnly(2026, 8, 1)
+        });
+        await context.Repository.AddExperienceAsync(new MediaExperience
+        {
+            WorkId = secondWork.Id,
+            StartedOn = new DateOnly(2026, 8, 2)
+        });
+        await context.Repository.AddExperienceAsync(new MediaExperience
+        {
+            WorkId = completedWork.Id,
+            StartedOn = new DateOnly(2026, 8, 1),
+            CompletedOn = new DateOnly(2026, 8, 3)
+        });
+
+        var active = await context.Repository.GetActiveExperiencesAsync();
+
+        Assert.Equal(2, active.Count);
+        Assert.Contains(firstWork.Id, active.Keys);
+        Assert.Contains(secondWork.Id, active.Keys);
+        Assert.DoesNotContain(completedWork.Id, active.Keys);
     }
 }

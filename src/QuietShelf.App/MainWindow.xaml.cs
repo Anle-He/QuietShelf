@@ -75,7 +75,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             if (choice == MessageBoxResult.Yes)
             {
                 SearchBox.Clear();
-                await ReloadLibraryAsync(existing.Id);
+                await ExecuteRepositoryActionAsync(() => ReloadLibraryAsync(existing.Id), "无法打开作品");
                 return;
             }
             if (choice != MessageBoxResult.No)
@@ -84,9 +84,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             }
         }
 
-        await _repository.AddWorkAsync(dialog.Work);
-        SearchBox.Clear();
-        await ReloadLibraryAsync(dialog.Work.Id);
+        await ExecuteRepositoryActionAsync(async () =>
+        {
+            await _repository.AddWorkAsync(dialog.Work);
+            SearchBox.Clear();
+            await ReloadLibraryAsync(dialog.Work.Id);
+        }, "无法添加作品");
     }
 
     private async void WorkList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -109,7 +112,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _selectedWorkId = work.Id;
         if (_selectedWork?.Id != work.Id)
         {
-            await LoadSelectedWorkAsync(work.Id);
+            await ExecuteRepositoryActionAsync(() => LoadSelectedWorkAsync(work.Id), "无法打开作品");
         }
     }
 
@@ -129,7 +132,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             await Task.Delay(200, cancellation.Token);
             if (_searchDebounceCancellation == cancellation)
             {
-                await ApplyFiltersAsync();
+                await ExecuteRepositoryActionAsync(() => ApplyFiltersAsync(), "无法筛选作品");
             }
         }
         catch (OperationCanceledException)
@@ -146,7 +149,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _kindFilter = filter;
         UpdateFilterButtons();
         CancelPendingSearch();
-        await ApplyFiltersAsync();
+        await ExecuteRepositoryActionAsync(() => ApplyFiltersAsync(), "无法筛选作品");
     }
 
     private async Task ReloadLibraryAsync(string? selectWorkId = null)
@@ -174,15 +177,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
 
         var activeWorks = _allWorks.Where(work => work.HasActiveExperience).ToList();
-        var experienceTasks = activeWorks.Select(work => _repository.GetActiveExperienceAsync(work.Id)).ToArray();
-        var experiences = await Task.WhenAll(experienceTasks);
+        var experiences = await _repository.GetActiveExperiencesAsync();
 
         var cards = new List<ActiveWorkCard>();
-        for (var index = 0; index < activeWorks.Count; index++)
+        foreach (var work in activeWorks)
         {
-            if (experiences[index] is { } experience)
+            if (experiences.TryGetValue(work.Id, out var experience))
             {
-                cards.Add(new ActiveWorkCard { Work = activeWorks[index], Experience = experience });
+                cards.Add(new ActiveWorkCard { Work = work, Experience = experience });
             }
         }
         _allActiveCards = cards;
@@ -227,7 +229,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
               || (work.Author?.Contains(query, StringComparison.CurrentCultureIgnoreCase) ?? false))).ToList();
 
         var activeIds = _allActiveCards.Select(card => card.Work.Id).ToHashSet(StringComparer.Ordinal);
-        var activeMatches = _allActiveCards.Where(card => matches.Any(work => work.Id == card.Work.Id)).ToList();
+        var matchingIds = matches.Select(work => work.Id).ToHashSet(StringComparer.Ordinal);
+        var activeMatches = _allActiveCards.Where(card => matchingIds.Contains(card.Work.Id)).ToList();
         var regularMatches = matches.Where(work => !activeIds.Contains(work.Id)).ToList();
         var selected = _showingDashboard ? null : matches.FirstOrDefault(work => work.Id == _selectedWorkId);
         if (!_showingDashboard && selected is null && matches.Count > 0 && string.IsNullOrWhiteSpace(query))
@@ -551,15 +554,19 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        if (_activeExperience is null)
+        var selectedWorkId = _selectedWork.Id;
+        await ExecuteRepositoryActionAsync(async () =>
         {
-            await _repository.AddExperienceAsync(dialog.Experience);
-        }
-        else
-        {
-            await _repository.UpdateExperienceAsync(dialog.Experience);
-        }
-        await ReloadLibraryAsync(_selectedWork.Id);
+            if (_activeExperience is null)
+            {
+                await _repository.AddExperienceAsync(dialog.Experience);
+            }
+            else
+            {
+                await _repository.UpdateExperienceAsync(dialog.Experience);
+            }
+            await ReloadLibraryAsync(selectedWorkId);
+        }, "无法保存本次记录");
     }
 
     private async void AddProgress_Click(object sender, RoutedEventArgs e)
@@ -578,7 +585,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
 
-        await OpenActiveWorkAsync(card);
+        await ExecuteRepositoryActionAsync(() => OpenActiveWorkAsync(card), "无法打开作品");
     }
 
     private async void DashboardActive_Open(object sender, RoutedEventArgs e)
@@ -588,7 +595,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
 
-        await OpenActiveWorkAsync(card);
+        await ExecuteRepositoryActionAsync(() => OpenActiveWorkAsync(card), "无法打开作品");
     }
 
     private async Task OpenActiveWorkAsync(ActiveWorkCard card)
@@ -612,7 +619,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _kindFilter = "all";
         UpdateFilterButtons();
         SearchBox.Clear();
-        await ReloadLibraryAsync(work.Id);
+        await ExecuteRepositoryActionAsync(() => ReloadLibraryAsync(work.Id), "无法打开作品");
     }
 
     private async void ActiveWork_AddProgress(object sender, RoutedEventArgs e)
@@ -643,8 +650,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
 
-        await _repository.AddProgressEntryAsync(dialog.Entry, dialog.TotalEpisodes);
-        await ReloadLibraryAsync(work.Id);
+        await ExecuteRepositoryActionAsync(async () =>
+        {
+            await _repository.AddProgressEntryAsync(dialog.Entry, dialog.TotalEpisodes);
+            await ReloadLibraryAsync(work.Id);
+        }, "无法保存进度");
     }
 
     private async void EditProgress_Click(object sender, RoutedEventArgs e)
@@ -664,8 +674,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        await _repository.UpdateProgressEntryAsync(dialog.Entry, dialog.TotalEpisodes);
-        await ReloadLibraryAsync(_selectedWork.Id);
+        var selectedWorkId = _selectedWork.Id;
+        await ExecuteRepositoryActionAsync(async () =>
+        {
+            await _repository.UpdateProgressEntryAsync(dialog.Entry, dialog.TotalEpisodes);
+            await ReloadLibraryAsync(selectedWorkId);
+        }, "无法更新进度");
     }
 
     private async void DeleteProgress_Click(object sender, RoutedEventArgs e)
@@ -681,8 +695,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        await _repository.DeleteProgressEntryAsync(entry.Id);
-        await ReloadLibraryAsync(_selectedWork.Id);
+        var selectedWorkId = _selectedWork.Id;
+        await ExecuteRepositoryActionAsync(async () =>
+        {
+            await _repository.DeleteProgressEntryAsync(entry.Id);
+            await ReloadLibraryAsync(selectedWorkId);
+        }, "无法删除进度");
     }
 
     private async void AbandonExperience_Click(object sender, RoutedEventArgs e)
@@ -699,8 +717,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        await _repository.DeleteExperienceAsync(_activeExperience.Id, _selectedWork.Id);
-        await ReloadLibraryAsync(_selectedWork.Id);
+        var selectedWorkId = _selectedWork.Id;
+        var experienceId = _activeExperience.Id;
+        await ExecuteRepositoryActionAsync(async () =>
+        {
+            await _repository.DeleteExperienceAsync(experienceId, selectedWorkId);
+            await ReloadLibraryAsync(selectedWorkId);
+        }, "无法放弃本次记录");
     }
 
     private async void EditExperience_Click(object sender, RoutedEventArgs e)
@@ -714,8 +737,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        await _repository.UpdateExperienceAsync(dialog.Experience);
-        await ReloadLibraryAsync(_selectedWork.Id);
+        var selectedWorkId = _selectedWork.Id;
+        await ExecuteRepositoryActionAsync(async () =>
+        {
+            await _repository.UpdateExperienceAsync(dialog.Experience);
+            await ReloadLibraryAsync(selectedWorkId);
+        }, "无法更新本次记录");
     }
 
     private async void DeleteExperience_Click(object sender, RoutedEventArgs e)
@@ -733,8 +760,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        await _repository.DeleteExperienceAsync(experience.Id, _selectedWork.Id);
-        await ReloadLibraryAsync(_selectedWork.Id);
+        var selectedWorkId = _selectedWork.Id;
+        await ExecuteRepositoryActionAsync(async () =>
+        {
+            await _repository.DeleteExperienceAsync(experience.Id, selectedWorkId);
+            await ReloadLibraryAsync(selectedWorkId);
+        }, "无法删除本次记录");
     }
 
     private async void DeleteWork_Click(object sender, RoutedEventArgs e)
@@ -750,9 +781,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        await _repository.DeleteWorkAsync(_selectedWork.Id);
-        ShowDashboard();
-        await ReloadLibraryAsync();
+        var selectedWorkId = _selectedWork.Id;
+        await ExecuteRepositoryActionAsync(async () =>
+        {
+            await _repository.DeleteWorkAsync(selectedWorkId);
+            ShowDashboard();
+            await ReloadLibraryAsync();
+        }, "无法删除作品");
     }
 
     private async void EditWork_Click(object sender, RoutedEventArgs e)
@@ -768,9 +803,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
 
-        await _repository.UpdateWorkMetadataAsync(dialog.Work);
-        SearchBox.Clear();
-        await ReloadLibraryAsync(dialog.Work.Id);
+        await ExecuteRepositoryActionAsync(async () =>
+        {
+            await _repository.UpdateWorkMetadataAsync(dialog.Work);
+            SearchBox.Clear();
+            await ReloadLibraryAsync(dialog.Work.Id);
+        }, "无法更新作品");
     }
 
     private async void ManageCovers_Click(object sender, RoutedEventArgs e)
@@ -782,6 +820,18 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         var workId = _selectedWork.Id;
         new ManageCoversWindow(_repository, _selectedWork) { Owner = this }.ShowDialog();
-        await ReloadLibraryAsync(workId);
+        await ExecuteRepositoryActionAsync(() => ReloadLibraryAsync(workId), "无法刷新作品");
+    }
+
+    private async Task ExecuteRepositoryActionAsync(Func<Task> action, string errorTitle)
+    {
+        try
+        {
+            await action();
+        }
+        catch (Exception exception)
+        {
+            MessageBox.Show(exception.Message, errorTitle, MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 }

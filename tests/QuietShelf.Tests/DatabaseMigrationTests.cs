@@ -132,6 +132,37 @@ public sealed class DatabaseMigrationTests
         }
     }
 
+    [Fact]
+    public async Task CurrentMigration_ReplacesInvalidExistingRecoveryCopy()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "QuietShelf-Tests-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var databasePath = Path.Combine(root, "records.db");
+        try
+        {
+            await CreateVersionZeroDatabaseAsync(databasePath);
+            var database = new Database(databasePath);
+            await File.WriteAllTextAsync(database.MigrationBackupPath, "invalid backup");
+
+            await database.InitializeAsync();
+
+            var backupConnectionString = new SqliteConnectionStringBuilder
+            {
+                DataSource = database.MigrationBackupPath,
+                Mode = SqliteOpenMode.ReadOnly
+            }.ToString();
+            await using var backup = new SqliteConnection(backupConnectionString);
+            await backup.OpenAsync();
+            Assert.Equal("ok", Convert.ToString(await ScalarAsync(backup, "PRAGMA integrity_check;")));
+            Assert.Equal(5L, await ScalarInt64Async(backup, "SELECT allure FROM experiences WHERE id='experience-1';"));
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static async Task CreateVersionZeroDatabaseAsync(string path)
     {
         var connectionString = new SqliteConnectionStringBuilder { DataSource = path }.ToString();
@@ -241,5 +272,12 @@ public sealed class DatabaseMigrationTests
         var command = connection.CreateCommand();
         command.CommandText = sql;
         return Convert.ToInt64(await command.ExecuteScalarAsync());
+    }
+
+    private static async Task<object?> ScalarAsync(SqliteConnection connection, string sql)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return await command.ExecuteScalarAsync();
     }
 }

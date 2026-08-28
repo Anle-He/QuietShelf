@@ -9,6 +9,7 @@ namespace QuietShelf.Converters;
 
 public sealed class CoverImageConverter : IValueConverter
 {
+    public const int DefaultDecodePixelWidth = 1024;
     private static readonly ConcurrentDictionary<ImageCacheKey, WeakReference<ImageSource>> Cache = new();
 
     public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -24,7 +25,7 @@ public sealed class CoverImageConverter : IValueConverter
             {
                 int width when width > 0 => width,
                 string text when int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var width) && width > 0 => width,
-                _ => 0
+                _ => DefaultDecodePixelWidth
             };
             var key = new ImageCacheKey(Path.GetFullPath(path), decodePixelWidth);
             if (Cache.TryGetValue(key, out var reference) && reference.TryGetTarget(out var cached))

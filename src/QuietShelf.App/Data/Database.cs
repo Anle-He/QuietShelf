@@ -239,19 +239,46 @@ public sealed class Database
 
     private void CreateMigrationBackup(SqliteConnection source)
     {
-        if (File.Exists(MigrationBackupPath))
-        {
-            return;
-        }
-
+        var temporaryPath = MigrationBackupPath + ".new";
+        File.Delete(temporaryPath);
         var backupConnectionString = new SqliteConnectionStringBuilder
         {
-            DataSource = MigrationBackupPath,
-            Mode = SqliteOpenMode.ReadWriteCreate
+            DataSource = temporaryPath,
+            Mode = SqliteOpenMode.ReadWriteCreate,
+            Pooling = false
         }.ToString();
-        using var destination = new SqliteConnection(backupConnectionString);
-        destination.Open();
-        source.BackupDatabase(destination);
+        try
+        {
+            using (var destination = new SqliteConnection(backupConnectionString))
+            {
+                destination.Open();
+                source.BackupDatabase(destination);
+
+                using var integrityCheck = destination.CreateCommand();
+                integrityCheck.CommandText = "PRAGMA integrity_check;";
+                var result = Convert.ToString(integrityCheck.ExecuteScalar());
+                if (!string.Equals(result, "ok", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException("The migration backup failed its integrity check.");
+                }
+            }
+
+            if (File.Exists(MigrationBackupPath))
+            {
+                File.Replace(temporaryPath, MigrationBackupPath, null);
+            }
+            else
+            {
+                File.Move(temporaryPath, MigrationBackupPath);
+            }
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+        }
     }
 
     private static async Task<int> GetSchemaVersionAsync(SqliteConnection connection)
