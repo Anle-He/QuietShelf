@@ -13,6 +13,7 @@ public sealed class MediaExperience
     public string? Notes { get; init; }
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.Now;
     public DateTimeOffset UpdatedAt { get; init; } = DateTimeOffset.Now;
+    public int ProgressDayCount { get; init; }
     public int ProgressEntryCount { get; init; }
     public int TotalMinutes { get; init; }
     public int TotalEpisodes { get; init; }
@@ -38,7 +39,7 @@ public sealed class MediaExperience
         get
         {
             var parts = new List<string>();
-            if (ProgressEntryCount > 0) parts.Add($"记录 {ProgressEntryCount} 天");
+            if (ProgressDayCount > 0) parts.Add($"记录 {ProgressDayCount} 天");
             if (TotalMinutes > 0) parts.Add($"{TotalMinutes} 分钟");
             if (TotalEpisodes > 0)
             {
