@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
 using Microsoft.Data.Sqlite;
@@ -7,7 +8,18 @@ namespace QuietShelf.Data;
 
 public sealed partial class LibraryRepository
 {
+    // The application is single-instance. Share gates across repository instances
+    // so each cover directory stays consistent through file and database changes.
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> CoverOperationGates = new(StringComparer.OrdinalIgnoreCase);
+
     public async Task<IReadOnlyList<WorkCover>> GetCoversAsync(string workId)
+    {
+        using var coverLock = await AcquireCoverLockAsync(workId);
+        return await ReadAndReconcileCoversAsync(workId);
+    }
+
+    // Caller must hold the cover lock, including while reading the database snapshot.
+    private async Task<IReadOnlyList<WorkCover>> ReadAndReconcileCoversAsync(string workId)
     {
         var covers = new List<WorkCover>();
         await using var connection = await OpenAsync();
@@ -44,8 +56,9 @@ public sealed partial class LibraryRepository
             return;
         }
 
+        using var coverLock = await AcquireCoverLockAsync(workId);
         var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".bmp" };
-        var existing = await GetCoversAsync(workId);
+        var existing = await ReadAndReconcileCoversAsync(workId);
         if (existing.Count + sourcePaths.Count > 20)
         {
             throw new InvalidOperationException("每部作品最多保存 20 张封面。");
@@ -122,7 +135,8 @@ public sealed partial class LibraryRepository
 
     public async Task DeleteCoverAsync(string workId, string coverId)
     {
-        var covers = await GetCoversAsync(workId);
+        using var coverLock = await AcquireCoverLockAsync(workId);
+        var covers = await ReadAndReconcileCoversAsync(workId);
         var cover = covers.FirstOrDefault(item => item.Id == coverId);
         if (cover is null)
         {
@@ -164,7 +178,8 @@ public sealed partial class LibraryRepository
 
     private async Task ReorderCoverAsync(string workId, string coverId, int position, bool absolute)
     {
-        var covers = await GetCoversAsync(workId);
+        using var coverLock = await AcquireCoverLockAsync(workId);
+        var covers = await ReadAndReconcileCoversAsync(workId);
         var ids = covers.Select(cover => cover.Id).ToList();
         var currentIndex = ids.IndexOf(coverId);
         if (currentIndex < 0)
@@ -203,6 +218,18 @@ public sealed partial class LibraryRepository
             update.Parameters.AddWithValue("$workId", workId);
             await update.ExecuteNonQueryAsync();
         }
+    }
+
+    private async Task<IDisposable> AcquireCoverLockAsync(string workId)
+    {
+        var gate = CoverOperationGates.GetOrAdd(database.GetCoverDirectory(workId), _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync();
+        return new CoverOperationLock(gate);
+    }
+
+    private sealed class CoverOperationLock(SemaphoreSlim gate) : IDisposable
+    {
+        public void Dispose() => gate.Release();
     }
 
     private static void TryDeleteFile(string path)

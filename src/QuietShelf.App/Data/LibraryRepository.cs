@@ -35,10 +35,10 @@ public sealed partial class LibraryRepository(Database database)
                         THEN 1 ELSE 0 END) AS rated_count,
                ROUND(AVG(CASE WHEN e.completed_on IS NOT NULL
                               THEN calculate_rank(e.allure, e.immersion, e.rationality, e.illumination) END), 1) AS aggregate_rank,
-               MAX(MAX(
+               MAX(COALESCE(NULLIF(MAX(
                    COALESCE((SELECT MAX(p.logged_on) FROM progress_entries p WHERE p.experience_id = e.id), ''),
                    COALESCE(e.completed_on, ''),
-                   COALESCE(e.started_on, ''),
+                   COALESCE(e.started_on, '')), ''),
                    substr(e.created_at, 1, 10))) AS latest_activity,
                (SELECT c.file_name FROM work_covers c WHERE c.work_id = w.id
                  ORDER BY c.sort_order, c.created_at LIMIT 1) AS primary_cover_file,
@@ -385,6 +385,7 @@ public sealed partial class LibraryRepository(Database database)
 
     public async Task DeleteWorkAsync(string workId)
     {
+        using var coverLock = await AcquireCoverLockAsync(workId);
         var coverDirectory = database.GetCoverDirectory(workId);
         var temporaryDirectory = coverDirectory + ".deleting-" + Guid.NewGuid().ToString("N");
         if (Directory.Exists(coverDirectory))

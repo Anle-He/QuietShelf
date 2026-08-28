@@ -1,5 +1,6 @@
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using QuietShelf.Data;
 using QuietShelf.Models;
 
 namespace QuietShelf.Tests;
@@ -291,6 +292,71 @@ public sealed class LibraryRepositoryTests
         Assert.Contains("已看 2 / 12 集", history[0].ProgressSummaryLabel, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(1, 10, 2, 10)]
+    [InlineData(1, null, 2, 2)]
+    [InlineData(1, null, null, 1)]
+    [InlineData(null, 10, null, 10)]
+    [InlineData(null, null, null, 28)]
+    public async Task WorkLatestActivity_UsesCreatedDateOnlyWhenActivityDatesAreMissing(
+        int? startDay, int? completionDay, int? progressDay, int expectedDay)
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var work = new MediaWork { Title = "backdated-activity-test", Kind = "book" };
+        await context.Repository.AddWorkAsync(work);
+        var experience = new MediaExperience
+        {
+            WorkId = work.Id,
+            StartedOn = startDay is { } start ? new DateOnly(2026, 8, start) : null,
+            CompletedOn = completionDay is { } completion ? new DateOnly(2026, 8, completion) : null,
+            CreatedAt = new DateTimeOffset(2026, 8, 28, 10, 0, 0, TimeSpan.Zero)
+        };
+        await context.Repository.AddExperienceAsync(experience);
+        if (progressDay is { } progress)
+        {
+            await context.Repository.AddProgressEntryAsync(new ProgressEntry
+            {
+                ExperienceId = experience.Id,
+                LoggedOn = new DateOnly(2026, 8, progress),
+                Metric = "duration",
+                Amount = 30
+            });
+        }
+
+        Assert.Equal(new DateOnly(2026, 8, expectedDay),
+            (await context.Repository.GetWorkAsync(work.Id))?.LatestActivityOn);
+    }
+
+    [Fact]
+    public async Task CoverRead_DuringImport_PreservesFilesAcrossRepositoryInstances()
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var work = new MediaWork { Title = "concurrent-cover-test", Kind = "book" };
+        await context.Repository.AddWorkAsync(work);
+        var sourcePath = Path.Combine(context.Root, "source.png");
+        await File.WriteAllBytesAsync(sourcePath, Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="));
+        using var sources = new PausingCoverSources(sourcePath);
+        var importing = Task.Run(() => context.Repository.AddCoversAsync(work.Id, sources));
+        Task<IReadOnlyList<WorkCover>> reading;
+        try
+        {
+            // Pause with the first JPEG on disk but not yet committed to SQLite.
+            await sources.FirstCoverStaged.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            var otherRepository = new LibraryRepository(new Database(context.Database.DatabasePath));
+            reading = otherRepository.GetCoversAsync(work.Id);
+        }
+        finally
+        {
+            sources.Resume();
+        }
+        await Task.WhenAll(importing, reading).WaitAsync(TimeSpan.FromSeconds(10));
+
+        var covers = await context.Repository.GetCoversAsync(work.Id);
+        Assert.Equal(2, covers.Count);
+        Assert.All(covers, cover => Assert.True(File.Exists(cover.FilePath), cover.FilePath));
+    }
+
     [Fact]
     public async Task CoverCleanup_ReconcilesInterruptedDeletionFiles()
     {
@@ -312,8 +378,14 @@ public sealed class LibraryRepositoryTests
 
         var orphanPath = Path.Combine(context.Database.GetCoverDirectory(work.Id), "orphan.png.deleting");
         await File.WriteAllTextAsync(orphanPath, "orphan");
+        var abandonedImportPath = Path.Combine(context.Database.GetCoverDirectory(work.Id), "orphan.jpg.adding");
+        var uncommittedCoverPath = Path.Combine(context.Database.GetCoverDirectory(work.Id), "orphan.jpg");
+        await File.WriteAllTextAsync(abandonedImportPath, "abandoned import");
+        await File.WriteAllTextAsync(uncommittedCoverPath, "uncommitted cover");
         await context.Repository.GetCoversAsync(work.Id);
         Assert.False(File.Exists(orphanPath));
+        Assert.False(File.Exists(abandonedImportPath));
+        Assert.False(File.Exists(uncommittedCoverPath));
     }
 
     [Theory]
@@ -467,5 +539,28 @@ public sealed class LibraryRepositoryTests
         Assert.Contains(firstWork.Id, active.Keys);
         Assert.Contains(secondWork.Id, active.Keys);
         Assert.DoesNotContain(completedWork.Id, active.Keys);
+    }
+
+    private sealed class PausingCoverSources(string sourcePath) : IReadOnlyList<string>, IDisposable
+    {
+        private readonly ManualResetEventSlim _resume = new(false);
+        public TaskCompletionSource FirstCoverStaged { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public int Count => 2;
+        public string this[int index] => index is 0 or 1 ? sourcePath : throw new ArgumentOutOfRangeException(nameof(index));
+
+        public IEnumerator<string> GetEnumerator()
+        {
+            yield return sourcePath;
+            FirstCoverStaged.TrySetResult();
+            if (!_resume.Wait(TimeSpan.FromSeconds(15)))
+            {
+                throw new TimeoutException("Timed out waiting to resume the cover import.");
+            }
+            yield return sourcePath;
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+        public void Resume() => _resume.Set();
+        public void Dispose() => _resume.Dispose();
     }
 }
