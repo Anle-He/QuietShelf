@@ -117,7 +117,7 @@ public partial class ManageCoversWindow : Window
         PreviewImage.Source = new CoverImageConverter().Convert(
             cover.FilePath,
             typeof(ImageSource),
-            null!,
+            CoverImageConverter.DefaultDecodePixelWidth,
             System.Globalization.CultureInfo.InvariantCulture) as ImageSource;
         PreviewCaptionText.Text = $"{_work.Title} · {cover.PositionLabel}";
         PreviewOverlay.Visibility = Visibility.Visible;

@@ -19,7 +19,7 @@ public sealed class ActiveWorkCardTests
             {
                 WorkId = "work",
                 StartedOn = new DateOnly(2026, 8, 26),
-                ProgressEntryCount = 2,
+                ProgressDayCount = 2,
                 TotalEpisodes = 6,
                 AvailableEpisodes = 10
             }
