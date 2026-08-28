@@ -3,6 +3,7 @@ param(
     [string]$NumericVersion = "",
     [string]$DotnetPath = "dotnet",
     [string]$IsccPath = "",
+    [string]$ExpectedIsccVersion = "6.7.3",
     [switch]$NoRestore
 )
 
@@ -57,6 +58,10 @@ if ([string]::IsNullOrWhiteSpace($IsccPath)) {
 if ([string]::IsNullOrWhiteSpace($IsccPath) -or -not (Test-Path -LiteralPath $IsccPath)) {
     throw "Inno Setup 6 compiler was not found."
 }
+$actualIsccVersion = (Get-Item -LiteralPath $IsccPath).VersionInfo.ProductVersion
+if ($actualIsccVersion -notmatch "^$([Regex]::Escape($ExpectedIsccVersion))(?:\.|$)") {
+    throw "Inno Setup compiler version '$actualIsccVersion' does not match required version '$ExpectedIsccVersion'."
+}
 
 $publishArguments = @(
     "publish", $projectPath,
@@ -76,6 +81,24 @@ if ($NoRestore) {
 & $DotnetPath @publishArguments
 if ($LASTEXITCODE -ne 0) {
     throw "QuietShelf publish failed with exit code $LASTEXITCODE."
+}
+
+$requiredPublishFiles = @(
+    "QuietShelf.App.exe",
+    "QuietShelf.App.dll",
+    "QuietShelf.App.deps.json",
+    "QuietShelf.App.runtimeconfig.json",
+    "Microsoft.Data.Sqlite.dll",
+    "Wpf.Ui.dll"
+)
+$missingPublishFiles = $requiredPublishFiles | Where-Object {
+    -not (Test-Path -LiteralPath (Join-Path $publishDirectory $_) -PathType Leaf)
+}
+if ($missingPublishFiles.Count -gt 0) {
+    throw "Publish output is missing required files: $($missingPublishFiles -join ', ')."
+}
+if (-not (Get-ChildItem -LiteralPath $publishDirectory -Recurse -File -Filter "e_sqlite3.dll" | Select-Object -First 1)) {
+    throw "Publish output is missing the SQLite native runtime."
 }
 
 & $IsccPath "/DAppVersion=$Version" "/DAppNumericVersion=$NumericVersion" $installerScript

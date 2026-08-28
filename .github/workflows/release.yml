@@ -22,6 +22,23 @@ jobs:
         with:
           dotnet-version: 10.0.400
 
+      - name: Install pinned Inno Setup
+        shell: pwsh
+        run: |
+          $version = '6.7.3'
+          $installer = Join-Path $env:RUNNER_TEMP "innosetup-$version.exe"
+          $url = "https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-$version.exe"
+          Invoke-WebRequest -Uri $url -OutFile $installer
+          $expectedHash = '9c73c3bae7ed48d44112a0f48e66742c00090bdb5bef71d9d3c056c66e97b732'
+          $actualHash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualHash -ne $expectedHash) {
+            throw "Inno Setup installer hash verification failed."
+          }
+          $process = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Inno Setup installation failed with exit code $($process.ExitCode)."
+          }
+
       - name: Read project version
         id: project-version
         shell: pwsh
