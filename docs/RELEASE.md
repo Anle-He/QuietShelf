@@ -6,7 +6,7 @@
 
 在原始电脑上完成以下检查：
 
-1. 更新 `VersionPrefix`、`VersionSuffix`、`AssemblyVersion` 和 `FileVersion`，并提交依赖锁文件。
+1. 更新 `VersionPrefix`、`AssemblyVersion` 和 `FileVersion`；需要预发布标识时再在 `Directory.Build.props` 中定义 `VersionSuffix`，并提交依赖锁文件。
 2. 从候选提交执行 Release 构建、自动测试和手动界面检查。
 3. 验证安装、启动、升级、卸载和现有数据库迁移。
 4. 确认工作区干净，候选提交已经合并到 `main`。
@@ -22,7 +22,7 @@ git tag -a v0.1.1 -m "QuietShelf 0.1.1"
 git push origin v0.1.1
 ```
 
-标签会触发 `Release artifacts` 工作流。工作流固定 .NET SDK 和 Inno Setup 版本，从标签提交还原锁定依赖，重新执行构建和自动测试，然后生成：
+标签会触发 `Release artifacts` 工作流。工作流固定 .NET SDK 10.0.400 和 Inno Setup 6.7.3，校验安装程序下载、还原锁定依赖、检查 framework-dependent 发布目录的必要文件，并重新执行构建和自动测试，然后生成：
 
 - `QuietShelf-<版本>-win-x64.zip`
 - `QuietShelf-Setup-<版本>.exe`
