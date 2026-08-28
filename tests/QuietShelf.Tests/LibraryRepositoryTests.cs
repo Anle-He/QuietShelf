@@ -155,6 +155,7 @@ public sealed class LibraryRepositoryTests
         Assert.Equal("completed", aggregate.Status);
         Assert.Equal(2, history.Count);
         Assert.Equal(new DateOnly(2026, 8, 5), history[0].StartedOn);
+        Assert.Equal(1, history[1].ProgressDayCount);
         Assert.Equal(1, history[1].ProgressEntryCount);
         Assert.Equal(35, history[1].TotalMinutes);
     }
@@ -189,7 +190,8 @@ public sealed class LibraryRepositoryTests
         var history = await context.Repository.GetExperiencesAsync(work.Id);
 
         Assert.Single(history);
-        Assert.Equal(1, history[0].ProgressEntryCount);
+        Assert.Equal(1, history[0].ProgressDayCount);
+        Assert.Equal(2, history[0].ProgressEntryCount);
         Assert.Equal(40, history[0].TotalMinutes);
         Assert.Equal(2, history[0].TotalEpisodes);
         Assert.Equal(12, history[0].AvailableEpisodes);
@@ -220,6 +222,39 @@ public sealed class LibraryRepositoryTests
 
         Assert.Equal(10, (await context.Repository.GetWorkAsync(firstWork.Id))?.TotalEpisodes);
         Assert.Null((await context.Repository.GetWorkAsync(secondWork.Id))?.TotalEpisodes);
+    }
+
+    [Fact]
+    public async Task WorkLatestActivity_UsesCompletionAfterEarlierProgress()
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var work = new MediaWork { Title = "latest-activity-test", Kind = "book" };
+        await context.Repository.AddWorkAsync(work);
+        var experience = new MediaExperience
+        {
+            WorkId = work.Id,
+            StartedOn = new DateOnly(2026, 8, 1)
+        };
+        await context.Repository.AddExperienceAsync(experience);
+        await context.Repository.AddProgressEntryAsync(new ProgressEntry
+        {
+            ExperienceId = experience.Id,
+            LoggedOn = new DateOnly(2026, 8, 2),
+            Metric = "duration",
+            Amount = 30
+        });
+        await context.Repository.UpdateExperienceAsync(new MediaExperience
+        {
+            Id = experience.Id,
+            WorkId = work.Id,
+            StartedOn = experience.StartedOn,
+            CompletedOn = new DateOnly(2026, 8, 10),
+            CreatedAt = experience.CreatedAt
+        });
+
+        var storedWork = await context.Repository.GetWorkAsync(work.Id);
+
+        Assert.Equal(new DateOnly(2026, 8, 10), storedWork?.LatestActivityOn);
     }
 
     [Fact]
