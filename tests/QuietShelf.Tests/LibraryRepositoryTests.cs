@@ -1,3 +1,5 @@
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using QuietShelf.Models;
 
 namespace QuietShelf.Tests;
@@ -312,6 +314,72 @@ public sealed class LibraryRepositoryTests
         await File.WriteAllTextAsync(orphanPath, "orphan");
         await context.Repository.GetCoversAsync(work.Id);
         Assert.False(File.Exists(orphanPath));
+    }
+
+    [Theory]
+    [InlineData(2400, 1200, 1600, 800)]
+    [InlineData(1200, 2400, 800, 1600)]
+    public async Task CoverImport_NormalizesDimensionsFormatAndTransparency(
+        int sourceWidth,
+        int sourceHeight,
+        int expectedWidth,
+        int expectedHeight)
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var work = new MediaWork { Title = "optimized-cover-test", Kind = "book" };
+        await context.Repository.AddWorkAsync(work);
+        var sourcePath = Path.Combine(context.Root, "transparent-source.png");
+        var pixels = new byte[sourceWidth * sourceHeight * 4];
+        var source = BitmapSource.Create(
+            sourceWidth,
+            sourceHeight,
+            96,
+            96,
+            PixelFormats.Bgra32,
+            null,
+            pixels,
+            sourceWidth * 4);
+        var png = new PngBitmapEncoder();
+        png.Frames.Add(BitmapFrame.Create(source));
+        await using (var output = File.Create(sourcePath))
+        {
+            png.Save(output);
+        }
+
+        await context.Repository.AddCoversAsync(work.Id, [sourcePath]);
+
+        var cover = Assert.Single(await context.Repository.GetCoversAsync(work.Id));
+        Assert.EndsWith(".jpg", cover.FileName, StringComparison.Ordinal);
+        var signature = await File.ReadAllBytesAsync(cover.FilePath);
+        Assert.True(signature.Length > 3);
+        Assert.Equal(0xFF, signature[0]);
+        Assert.Equal(0xD8, signature[1]);
+        using var input = File.OpenRead(cover.FilePath);
+        var frame = BitmapFrame.Create(input, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+        Assert.Equal(expectedWidth, frame.PixelWidth);
+        Assert.Equal(expectedHeight, frame.PixelHeight);
+        var converted = new FormatConvertedBitmap(frame, PixelFormats.Bgr24, null, 0);
+        var firstPixel = new byte[3];
+        converted.CopyPixels(new System.Windows.Int32Rect(0, 0, 1, 1), firstPixel, 3, 0);
+        Assert.All(firstPixel, channel => Assert.InRange(channel, (byte)245, byte.MaxValue));
+    }
+
+    [Fact]
+    public async Task CoverImport_RejectsInvalidImageContentWithoutLeavingFiles()
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var work = new MediaWork { Title = "invalid-cover-test", Kind = "book" };
+        await context.Repository.AddWorkAsync(work);
+        var sourcePath = Path.Combine(context.Root, "invalid.png");
+        await File.WriteAllTextAsync(sourcePath, "not an image");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            context.Repository.AddCoversAsync(work.Id, [sourcePath]));
+
+        Assert.Empty(await context.Repository.GetCoversAsync(work.Id));
+        var coverDirectory = context.Database.GetCoverDirectory(work.Id);
+        Assert.False(Directory.Exists(coverDirectory)
+                     && Directory.EnumerateFiles(coverDirectory, "*", SearchOption.TopDirectoryOnly).Any());
     }
 
     [Fact]

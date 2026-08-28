@@ -215,15 +215,11 @@ public sealed class LibraryRepository(Database database)
                 }
 
                 var coverId = Guid.NewGuid().ToString("N");
-                var fileName = coverId + source.Extension.ToLowerInvariant();
+                var fileName = coverId + ".jpg";
                 var destination = database.GetCoverFilePath(workId, fileName);
                 var temporaryDestination = destination + ".adding";
                 createdFiles.Add(temporaryDestination);
-                await using (var input = source.OpenRead())
-                await using (var output = File.Create(temporaryDestination))
-                {
-                    await input.CopyToAsync(output);
-                }
+                await CoverImageProcessor.SaveOptimizedJpegAsync(source.FullName, temporaryDestination);
                 File.Move(temporaryDestination, destination);
                 createdFiles.Add(destination);
                 staged.Add(new WorkCover
