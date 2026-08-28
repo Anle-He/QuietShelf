@@ -22,9 +22,11 @@ public sealed class LibraryRepository(Database database)
                         THEN 1 ELSE 0 END) AS rated_count,
                ROUND(AVG(CASE WHEN e.completed_on IS NOT NULL
                               THEN calculate_rank(e.allure, e.immersion, e.rationality, e.illumination) END), 1) AS aggregate_rank,
-               MAX(COALESCE(
-                   (SELECT MAX(p.logged_on) FROM progress_entries p WHERE p.experience_id = e.id),
-                   e.completed_on, e.started_on, substr(e.created_at, 1, 10))) AS latest_activity,
+               MAX(MAX(
+                   COALESCE((SELECT MAX(p.logged_on) FROM progress_entries p WHERE p.experience_id = e.id), ''),
+                   COALESCE(e.completed_on, ''),
+                   COALESCE(e.started_on, ''),
+                   substr(e.created_at, 1, 10))) AS latest_activity,
                (SELECT c.file_name FROM work_covers c WHERE c.work_id = w.id
                  ORDER BY c.sort_order, c.created_at LIMIT 1) AS primary_cover_file,
                w.author
@@ -71,6 +73,7 @@ public sealed class LibraryRepository(Database database)
             SELECT e.id, e.work_id, e.started_on, e.completed_on, e.allure, e.immersion, e.rationality, e.illumination,
                    e.notes, e.created_at, e.updated_at,
                    COUNT(DISTINCT p.logged_on),
+                   COUNT(p.id),
                    COALESCE(SUM(CASE WHEN p.metric = 'duration' THEN p.amount ELSE 0 END), 0),
                    COALESCE(SUM(CASE WHEN p.metric = 'episodes' THEN p.amount ELSE 0 END), 0),
                    w.total_episodes
@@ -98,10 +101,11 @@ public sealed class LibraryRepository(Database database)
                 Notes = reader.IsDBNull(8) ? null : reader.GetString(8),
                 CreatedAt = DateTimeOffset.Parse(reader.GetString(9), CultureInfo.InvariantCulture),
                 UpdatedAt = DateTimeOffset.Parse(reader.GetString(10), CultureInfo.InvariantCulture),
-                ProgressEntryCount = reader.GetInt32(11),
-                TotalMinutes = reader.GetInt32(12),
-                TotalEpisodes = reader.GetInt32(13),
-                AvailableEpisodes = reader.IsDBNull(14) ? null : reader.GetInt32(14)
+                ProgressDayCount = reader.GetInt32(11),
+                ProgressEntryCount = reader.GetInt32(12),
+                TotalMinutes = reader.GetInt32(13),
+                TotalEpisodes = reader.GetInt32(14),
+                AvailableEpisodes = reader.IsDBNull(15) ? null : reader.GetInt32(15)
             });
         }
         return experiences;
