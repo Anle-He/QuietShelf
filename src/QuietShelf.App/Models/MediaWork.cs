@@ -20,6 +20,7 @@ public sealed class MediaWork
 
     public string KindLabel => Kind == "book" ? "书籍" : "影视";
     public string KindGlyph => Kind == "book" ? "书" : "影";
+    public string ExperienceActionLabel => Kind == "book" ? "阅读" : "观看";
     public string StatusLabel => HasActiveExperience ? "进行中" : Status switch
     {
         "planned" => Kind == "book" ? "想读" : "想看",
@@ -30,7 +31,29 @@ public sealed class MediaWork
     public string AggregateRankLabel => AggregateRank is null
         ? "暂无评分"
         : $"{AggregateRank:0.0} / {RatingScale.RankMaximum:0.0}";
-    public string ExperienceCountLabel => Kind == "book" ? $"阅读 {ExperienceCount} 次" : $"观看 {ExperienceCount} 次";
+    public bool HasAggregateRank => AggregateRank is not null;
+    public string AggregateRankValueLabel => AggregateRank?.ToString("0.0") ?? string.Empty;
+    public string AggregateRankMaximumLabel => $"/ {RatingScale.RankMaximum:0.0}";
+    public string AggregateScoreTier => RatingScale.GetPercentage(AggregateRank) switch
+    {
+        >= 0.8 => "gold",
+        >= 0.6 => "silver",
+        _ => "bronze"
+    };
+    public string AggregateScoreTierLabel => AggregateScoreTier switch
+    {
+        "gold" => "金星",
+        "silver" => "银星",
+        _ => "铜星"
+    };
+    public string AggregateRatingMarkLabel => $"{AggregateScoreTierLabel} · {AggregateRankLabel}";
+    public string ExperienceCountColorTier => ExperienceCount switch
+    {
+        >= 2 => "gold",
+        1 => "green",
+        _ => "muted"
+    };
+    public string ExperienceCountLabel => $"{ExperienceActionLabel} {ExperienceCount} 次";
     public string RatingCountLabel => RatedExperienceCount == 0 ? "尚无完整评分" : $"来自 {RatedExperienceCount} 次评分";
     public string LatestActivityLabel => LatestActivityOn is null ? "尚未记录" : $"最近 {LatestActivityOn:yyyy-MM-dd}";
     public bool HasPrimaryCover => !string.IsNullOrWhiteSpace(PrimaryCoverPath);

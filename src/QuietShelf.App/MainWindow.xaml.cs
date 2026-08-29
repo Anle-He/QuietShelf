@@ -12,6 +12,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private LibraryRepository? _repository;
     private IReadOnlyList<MediaWork> _allWorks = [];
     private IReadOnlyList<ActiveWorkCard> _allActiveCards = [];
+    private IReadOnlyList<DashboardTimelineItem> _dashboardTimelineItems = [];
+    private IReadOnlyList<DashboardActivityDay> _dashboardActivityDays = [];
     private string _kindFilter = "all";
     private string? _selectedWorkId;
     private MediaWork? _selectedWork;
@@ -31,8 +33,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     public ObservableCollection<MediaWork> VisibleWorks { get; } = [];
     public ObservableCollection<ActiveWorkCard> ActiveWorks { get; } = [];
     public ObservableCollection<ActiveWorkCard> DashboardActiveWorks { get; } = [];
-    public ObservableCollection<MediaWork> DashboardRecentWorks { get; } = [];
-    public ObservableCollection<MediaExperience> CompletedExperiences { get; } = [];
+    public ObservableCollection<DashboardTimelineDay> DashboardTimelineDays { get; } = [];
+    public ObservableCollection<DashboardHeatmapDay> DashboardHeatmapDays { get; } = [];
+    public ObservableCollection<string> DashboardHeatmapWeekLabels { get; } = [];
+    public ObservableCollection<ExperienceArchiveCard> CompletedExperiences { get; } = [];
     public ObservableCollection<ProgressEntry> ProgressEntries { get; } = [];
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -174,7 +178,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
 
         var activeWorks = _allWorks.Where(work => work.HasActiveExperience).ToList();
-        var experiences = await _repository.GetActiveExperiencesAsync();
+        var experiencesTask = _repository.GetActiveExperiencesAsync();
+        var timelineTask = _repository.GetRecentTimelineAsync();
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var daysSinceMonday = ((int)today.DayOfWeek + 6) % 7;
+        var currentMonday = today.AddDays(-daysSinceMonday);
+        var heatmapStart = currentMonday.AddDays(-77);
+        var heatmapTask = _repository.GetActivityHeatmapAsync(heatmapStart, today);
+        var experiences = await experiencesTask;
 
         var cards = new List<ActiveWorkCard>();
         foreach (var work in activeWorks)
@@ -185,6 +196,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             }
         }
         _allActiveCards = cards;
+        _dashboardTimelineItems = await timelineTask;
+        _dashboardActivityDays = await heatmapTask;
         RefreshDashboard();
     }
 
@@ -196,14 +209,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             DashboardActiveWorks.Add(card);
         }
 
-        DashboardRecentWorks.Clear();
-        foreach (var work in _allWorks
-                     .OrderByDescending(work => work.LatestActivityOn ?? DateOnly.MinValue)
-                     .ThenByDescending(work => work.UpdatedAt)
-                     .Take(5))
+        DashboardTimelineDays.Clear();
+        foreach (var day in _dashboardTimelineItems.GroupBy(item => item.LoggedOn))
         {
-            DashboardRecentWorks.Add(work);
+            DashboardTimelineDays.Add(new DashboardTimelineDay { Date = day.Key, Items = day.ToList() });
         }
+
+        RefreshDashboardHeatmap();
 
         DashboardWorkCountText.Text = _allWorks.Count.ToString();
         DashboardActiveCountText.Text = _allActiveCards.Count.ToString();
@@ -212,7 +224,51 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         DashboardActiveSection.Visibility = _allActiveCards.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         DashboardHeroEmptyContent.Visibility = _allActiveCards.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         DashboardEmptyState.Visibility = _allWorks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        DashboardRecentList.Visibility = _allWorks.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        DashboardTimelineList.Visibility = _dashboardTimelineItems.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        DashboardTimelineEmptyState.Visibility = _allWorks.Count > 0 && _dashboardTimelineItems.Count == 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void RefreshDashboardHeatmap()
+    {
+        DashboardHeatmapDays.Clear();
+        DashboardHeatmapWeekLabels.Clear();
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var daysSinceMonday = ((int)today.DayOfWeek + 6) % 7;
+        var currentMonday = today.AddDays(-daysSinceMonday);
+        var firstMonday = currentMonday.AddDays(-77);
+        var activityByDate = _dashboardActivityDays.ToDictionary(day => day.Date);
+
+        for (var week = 0; week < 12; week++)
+        {
+            var weekStart = firstMonday.AddDays(week * 7);
+            var previousWeek = weekStart.AddDays(-7);
+            DashboardHeatmapWeekLabels.Add(week == 0 || weekStart.Month != previousWeek.Month
+                ? $"{weekStart.Month}月"
+                : string.Empty);
+        }
+
+        for (var weekday = 0; weekday < 7; weekday++)
+        {
+            for (var week = 0; week < 12; week++)
+            {
+                var date = firstMonday.AddDays(week * 7 + weekday);
+                activityByDate.TryGetValue(date, out var activity);
+                DashboardHeatmapDays.Add(new DashboardHeatmapDay
+                {
+                    Date = date,
+                    ActivityCount = activity?.ActivityCount ?? 0,
+                    CompletionCount = activity?.CompletionCount ?? 0,
+                    TitleSummary = activity?.TitleSummary ?? string.Empty,
+                    IsFuture = date > today
+                });
+            }
+        }
+
+        DashboardHeatmapRangeText.Text = $"{firstMonday:M月d日} — {today:M月d日}";
+        DashboardHeatmapPanel.Visibility = _allWorks.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private async Task ApplyFiltersAsync(bool reloadSelected = false)
@@ -393,9 +449,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         ProgressList.Visibility = ProgressEntries.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
 
         CompletedExperiences.Clear();
-        foreach (var experience in allExperiences.Where(experience => experience.CompletedOn is not null))
+        var completed = allExperiences.Where(experience => experience.CompletedOn is not null).ToList();
+        for (var index = 0; index < completed.Count; index++)
         {
-            CompletedExperiences.Add(experience);
+            CompletedExperiences.Add(new ExperienceArchiveCard
+            {
+                Experience = completed[index],
+                ArchiveNumber = completed.Count - index
+            });
         }
         HistoryCaptionText.Text = CompletedExperiences.Count == 0 ? string.Empty : $"共 {CompletedExperiences.Count} 次";
         HistoryEmpty.Visibility = CompletedExperiences.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -510,9 +571,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         await ReloadLibraryAsync(card.Work.Id);
     }
 
-    private async void DashboardWork_Open(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    private async void DashboardTimeline_Open(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { Tag: MediaWork work })
+        if (sender is not FrameworkElement { Tag: DashboardTimelineItem item })
         {
             return;
         }
@@ -521,7 +582,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _kindFilter = "all";
         UpdateFilterButtons();
         SearchBox.Clear();
-        await ExecuteRepositoryActionAsync(() => ReloadLibraryAsync(work.Id), "无法打开作品");
+        await ExecuteRepositoryActionAsync(() => ReloadLibraryAsync(item.WorkId), "无法打开作品");
     }
 
     private async void ActiveWork_AddProgress(object sender, RoutedEventArgs e)
@@ -630,7 +691,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private async void EditExperience_Click(object sender, RoutedEventArgs e)
     {
-        if (_repository is null || _selectedWork is null || sender is not System.Windows.Controls.Button { Tag: MediaExperience experience })
+        if (_repository is null || _selectedWork is null || sender is not FrameworkElement { Tag: MediaExperience experience })
         {
             return;
         }
@@ -649,7 +710,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private async void DeleteExperience_Click(object sender, RoutedEventArgs e)
     {
-        if (_repository is null || _selectedWork is null || sender is not System.Windows.Controls.Button { Tag: MediaExperience experience })
+        if (_repository is null || _selectedWork is null || sender is not FrameworkElement { Tag: MediaExperience experience })
         {
             return;
         }
@@ -668,6 +729,18 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             await _repository.DeleteExperienceAsync(experience.Id, selectedWorkId);
             await ReloadLibraryAsync(selectedWorkId);
         }, "无法删除本次记录");
+    }
+
+    private void ArchiveMore_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Button { ContextMenu: { } menu } button)
+        {
+            return;
+        }
+
+        menu.PlacementTarget = button;
+        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        menu.IsOpen = true;
     }
 
     private async void DeleteWork_Click(object sender, RoutedEventArgs e)

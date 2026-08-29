@@ -200,6 +200,152 @@ public sealed class LibraryRepositoryTests
         Assert.Equal(40, history[0].TotalMinutes);
         Assert.Equal(2, history[0].TotalEpisodes);
         Assert.Equal(12, history[0].AvailableEpisodes);
+        var archive = new ExperienceArchiveCard { ArchiveNumber = 1, Experience = history[0] };
+        Assert.Equal("记录 1 天", archive.ActivityDaysLabel);
+    }
+
+    [Fact]
+    public async Task RecentTimeline_CombinesProgressAndCompletionAcrossWorks()
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var screen = new MediaWork { Title = "timeline-screen", Kind = "screen" };
+        var book = new MediaWork { Title = "timeline-book", Kind = "book" };
+        await context.Repository.AddWorkAsync(screen);
+        await context.Repository.AddWorkAsync(book);
+
+        var viewing = new MediaExperience { WorkId = screen.Id, StartedOn = new DateOnly(2026, 8, 20) };
+        await context.Repository.AddExperienceAsync(viewing);
+        await context.Repository.AddProgressEntryAsync(new ProgressEntry
+        {
+            ExperienceId = viewing.Id,
+            LoggedOn = new DateOnly(2026, 8, 27),
+            Metric = "episodes",
+            Amount = 3,
+            Notes = "a useful note"
+        });
+
+        var reading = new MediaExperience
+        {
+            WorkId = book.Id,
+            StartedOn = new DateOnly(2026, 8, 21),
+            CompletedOn = new DateOnly(2026, 8, 26)
+        };
+        await context.Repository.AddExperienceAsync(reading);
+
+        var timeline = await context.Repository.GetRecentTimelineAsync();
+
+        Assert.Equal(2, timeline.Count);
+        Assert.True(timeline[0].IsLatest);
+        Assert.Equal(screen.Id, timeline[0].WorkId);
+        Assert.Equal("看了 3 集", timeline[0].ActionLabel);
+        Assert.Equal("a useful note", timeline[0].NotesExcerpt);
+        Assert.False(timeline[1].IsLatest);
+        Assert.Equal(book.Id, timeline[1].WorkId);
+        Assert.Equal("完成一次阅读", timeline[1].ActionLabel);
+    }
+
+    [Fact]
+    public async Task ActivityHeatmap_GroupsProgressAndCompletionByDay()
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var work = new MediaWork { Title = "Heatmap", Kind = "screen" };
+        await context.Repository.AddWorkAsync(work);
+        var experience = new MediaExperience
+        {
+            WorkId = work.Id,
+            StartedOn = new DateOnly(2026, 8, 20)
+        };
+        await context.Repository.AddExperienceAsync(experience);
+        await context.Repository.AddProgressEntryAsync(new ProgressEntry
+        {
+            ExperienceId = experience.Id,
+            LoggedOn = new DateOnly(2026, 8, 26),
+            Metric = "episodes",
+            Amount = 2
+        });
+        await context.Repository.AddProgressEntryAsync(new ProgressEntry
+        {
+            ExperienceId = experience.Id,
+            LoggedOn = new DateOnly(2026, 8, 26),
+            Metric = "episodes",
+            Amount = 1
+        });
+        await context.Repository.UpdateExperienceAsync(new MediaExperience
+        {
+            Id = experience.Id,
+            WorkId = work.Id,
+            StartedOn = experience.StartedOn,
+            CompletedOn = new DateOnly(2026, 8, 26)
+        });
+
+        var days = await context.Repository.GetActivityHeatmapAsync(new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 31));
+
+        var day = Assert.Single(days);
+        Assert.Equal(new DateOnly(2026, 8, 26), day.Date);
+        Assert.Equal(3, day.ActivityCount);
+        Assert.Equal(1, day.CompletionCount);
+        Assert.Contains("Heatmap", day.TitleSummary);
+    }
+
+    [Fact]
+    public async Task DashboardActivity_TracksHistoricalEditsAndDeletesWithoutInflatingWorkTotals()
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        var work = new MediaWork { Title = "historical-dashboard", Kind = "book" };
+        await context.Repository.AddWorkAsync(work);
+        var startedOn = new DateOnly(2026, 8, 1);
+        var completedOn = startedOn.AddDays(9);
+        var experience = new MediaExperience { WorkId = work.Id, StartedOn = startedOn };
+        await context.Repository.AddExperienceAsync(experience);
+        var progress = new ProgressEntry
+        {
+            ExperienceId = experience.Id, LoggedOn = startedOn, Metric = "duration", Amount = 20
+        };
+        await context.Repository.AddProgressEntryAsync(progress);
+        await context.Repository.AddProgressEntryAsync(new ProgressEntry
+        {
+            ExperienceId = experience.Id, LoggedOn = startedOn, Metric = "duration", Amount = 30
+        });
+        await context.Repository.UpdateExperienceAsync(new MediaExperience
+        {
+            Id = experience.Id, WorkId = work.Id, StartedOn = startedOn, CompletedOn = completedOn,
+            Allure = 3, Immersion = 5, Rationality = 5, Illumination = 5
+        });
+
+        var aggregate = Assert.Single(await context.Repository.GetWorksAsync());
+        Assert.Equal(1, aggregate.ExperienceCount);
+        Assert.Equal(1, aggregate.RatedExperienceCount);
+        Assert.Equal(RatingScale.RankMaximum, aggregate.AggregateRank);
+        Assert.Equal(completedOn, aggregate.LatestActivityOn);
+        var latest = Assert.Single(await context.Repository.GetRecentTimelineAsync(1));
+        Assert.Equal("completion", latest.EventType);
+        Assert.Equal(completedOn, latest.LoggedOn);
+        var completionDay = Assert.Single(await context.Repository.GetActivityHeatmapAsync(completedOn, completedOn));
+        Assert.Equal(1, completionDay.ActivityCount);
+        Assert.Equal(1, completionDay.CompletionCount);
+
+        var editedOn = startedOn.AddDays(1);
+        await context.Repository.UpdateProgressEntryAsync(new ProgressEntry
+        {
+            Id = progress.Id, ExperienceId = experience.Id, LoggedOn = editedOn,
+            Metric = "duration", Amount = 25, CreatedAt = progress.CreatedAt
+        });
+        var timeline = await context.Repository.GetRecentTimelineAsync();
+        Assert.Equal(new[] { completedOn, editedOn, startedOn }, timeline.Select(item => item.LoggedOn));
+        Assert.Equal(25, timeline[1].Amount);
+        var days = await context.Repository.GetActivityHeatmapAsync(startedOn, completedOn);
+        Assert.Equal(3, days.Count);
+        Assert.All(days, day => Assert.Equal(1, day.ActivityCount));
+
+        await context.Repository.DeleteProgressEntryAsync(progress.Id);
+        Assert.Empty(await context.Repository.GetActivityHeatmapAsync(editedOn, editedOn));
+        Assert.DoesNotContain(await context.Repository.GetRecentTimelineAsync(), item => item.Id == progress.Id);
+        await context.Repository.DeleteExperienceAsync(experience.Id, work.Id);
+        Assert.Empty(await context.Repository.GetRecentTimelineAsync());
+        Assert.Empty(await context.Repository.GetActivityHeatmapAsync(startedOn, completedOn));
+        aggregate = Assert.Single(await context.Repository.GetWorksAsync());
+        Assert.Equal(0, aggregate.ExperienceCount);
+        Assert.Null(aggregate.LatestActivityOn);
     }
 
     [Fact]

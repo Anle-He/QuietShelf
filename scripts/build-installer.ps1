@@ -58,7 +58,25 @@ if ([string]::IsNullOrWhiteSpace($IsccPath)) {
 if ([string]::IsNullOrWhiteSpace($IsccPath) -or -not (Test-Path -LiteralPath $IsccPath)) {
     throw "Inno Setup 6 compiler was not found."
 }
-$actualIsccVersion = (Get-Item -LiteralPath $IsccPath).VersionInfo.ProductVersion
+# Some Inno Setup builds have a 0.0.0.0 PE version; query the compiler engine itself.
+$versionProbe = @'
+[Setup]
+AppName=QuietShelfToolchainProbe
+AppVersion=0
+DefaultDirName={tmp}\QuietShelfToolchainProbe
+CreateAppDir=no
+Uninstallable=no
+Output=no
+'@
+$probeOutput = $versionProbe | & $IsccPath "/O$installerDirectory" /O- - 2>&1
+if ($LASTEXITCODE -ne 0) {
+    throw "Could not query Inno Setup compiler version: $($probeOutput -join [Environment]::NewLine)"
+}
+$versionMatch = [Regex]::Match(($probeOutput -join "`n"), '(?m)^Compiler engine version: Inno Setup (\d+\.\d+\.\d+(?:\.\d+)?)\s*$')
+if (-not $versionMatch.Success) {
+    throw "Inno Setup compiler did not report its engine version."
+}
+$actualIsccVersion = $versionMatch.Groups[1].Value
 if ($actualIsccVersion -notmatch "^$([Regex]::Escape($ExpectedIsccVersion))(?:\.|$)") {
     throw "Inno Setup compiler version '$actualIsccVersion' does not match required version '$ExpectedIsccVersion'."
 }

@@ -6,6 +6,27 @@ namespace QuietShelf.Tests;
 public sealed class DatabaseMigrationTests
 {
     [Fact]
+    public async Task CurrentInitialization_PreservesExistingJournalModeAndDatabaseBytes()
+    {
+        await using var context = await TempDatabase.CreateAsync();
+        await context.Repository.AddWorkAsync(new QuietShelf.Models.MediaWork { Title = "startup-test", Kind = "book" });
+        SqliteConnection.ClearAllPools();
+        await using (var connection = new SqliteConnection(context.Database.ConnectionString))
+        {
+            await connection.OpenAsync();
+            Assert.Equal("delete", await ScalarAsync(connection, "PRAGMA journal_mode=DELETE;"));
+        }
+        SqliteConnection.ClearAllPools();
+        var before = await File.ReadAllBytesAsync(context.Database.DatabasePath);
+
+        await new Database(context.Database.DatabasePath).InitializeAsync();
+        Assert.Single(await context.Repository.GetWorksAsync());
+        SqliteConnection.ClearAllPools();
+
+        Assert.Equal(before, await File.ReadAllBytesAsync(context.Database.DatabasePath));
+    }
+
+    [Fact]
     public async Task CurrentMigration_DoesNotRestoreDeletedLegacyWork()
     {
         var root = Path.Combine(Path.GetTempPath(), "QuietShelf-Tests-" + Guid.NewGuid().ToString("N"));

@@ -42,6 +42,8 @@ public partial class AddExperienceWindow : Window
         SetRating(RationalityBox, existing?.Rationality);
         SetRating(IlluminationBox, existing?.Illumination);
         CompletionPanel.Visibility = completing ? Visibility.Visible : Visibility.Collapsed;
+        EndDateField.Visibility = completing ? Visibility.Visible : Visibility.Collapsed;
+        Grid.SetColumnSpan(StartDateField, completing ? 1 : 3);
         StartedOnPicker.IsEnabled = !completing || editingCompleted;
         SaveButton.Content = editingCompleted ? "保存修改" : completing ? "完成本次" : "开始记录";
         if (!completing)

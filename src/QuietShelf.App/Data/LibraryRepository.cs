@@ -196,6 +196,107 @@ public sealed partial class LibraryRepository(Database database)
         return entries;
     }
 
+    public async Task<IReadOnlyList<DashboardTimelineItem>> GetRecentTimelineAsync(int limit = 5)
+    {
+        var items = new List<DashboardTimelineItem>();
+        await using var connection = await OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            WITH activity AS (
+                SELECT p.id, e.work_id, p.logged_on AS event_on, 'progress' AS event_type,
+                       p.metric, p.amount, p.notes, p.created_at AS event_created
+                FROM progress_entries p
+                JOIN experiences e ON e.id = p.experience_id
+
+                UNION ALL
+
+                SELECT e.id, e.work_id, e.completed_on AS event_on, 'completion' AS event_type,
+                       'completion' AS metric, 0 AS amount, e.notes, e.updated_at AS event_created
+                FROM experiences e
+                WHERE e.completed_on IS NOT NULL
+            )
+            SELECT a.id, a.work_id, w.title, w.kind, a.event_on, a.event_type,
+                   a.metric, a.amount, a.notes, a.event_created,
+                   (SELECT c.file_name FROM work_covers c WHERE c.work_id = w.id
+                    ORDER BY c.sort_order, c.created_at LIMIT 1) AS primary_cover_file
+            FROM activity a
+            JOIN works w ON w.id = a.work_id
+            ORDER BY a.event_on DESC, a.event_created DESC
+            LIMIT $limit;
+            """;
+        command.Parameters.AddWithValue("$limit", Math.Clamp(limit, 1, 8));
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            string? primaryCoverPath = null;
+            if (!reader.IsDBNull(10))
+            {
+                var candidate = database.GetCoverFilePath(reader.GetString(1), reader.GetString(10));
+                if (File.Exists(candidate))
+                {
+                    primaryCoverPath = candidate;
+                }
+            }
+
+            items.Add(new DashboardTimelineItem
+            {
+                Id = reader.GetString(0),
+                WorkId = reader.GetString(1),
+                Title = reader.GetString(2),
+                Kind = reader.GetString(3),
+                LoggedOn = DateOnly.Parse(reader.GetString(4), CultureInfo.InvariantCulture),
+                EventType = reader.GetString(5),
+                Metric = reader.GetString(6),
+                Amount = reader.GetInt32(7),
+                Notes = reader.IsDBNull(8) ? null : reader.GetString(8),
+                PrimaryCoverPath = primaryCoverPath,
+                IsLatest = items.Count == 0
+            });
+        }
+        return items;
+    }
+
+    public async Task<IReadOnlyList<DashboardActivityDay>> GetActivityHeatmapAsync(DateOnly start, DateOnly end)
+    {
+        var days = new List<DashboardActivityDay>();
+        await using var connection = await OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            WITH activity AS (
+                SELECT e.work_id, p.logged_on AS event_on, 0 AS is_completion
+                FROM progress_entries p
+                JOIN experiences e ON e.id = p.experience_id
+                WHERE p.logged_on BETWEEN $start AND $end
+
+                UNION ALL
+
+                SELECT e.work_id, e.completed_on AS event_on, 1 AS is_completion
+                FROM experiences e
+                WHERE e.completed_on BETWEEN $start AND $end
+            )
+            SELECT a.event_on, COUNT(*) AS activity_count, SUM(a.is_completion) AS completion_count,
+                   GROUP_CONCAT(DISTINCT w.title) AS titles
+            FROM activity a
+            JOIN works w ON w.id = a.work_id
+            GROUP BY a.event_on
+            ORDER BY a.event_on;
+            """;
+        command.Parameters.AddWithValue("$start", start.ToString("yyyy-MM-dd"));
+        command.Parameters.AddWithValue("$end", end.ToString("yyyy-MM-dd"));
+        await using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            days.Add(new DashboardActivityDay
+            {
+                Date = DateOnly.Parse(reader.GetString(0), CultureInfo.InvariantCulture),
+                ActivityCount = reader.GetInt32(1),
+                CompletionCount = reader.GetInt32(2),
+                TitleSummary = reader.IsDBNull(3) ? string.Empty : reader.GetString(3)
+            });
+        }
+        return days;
+    }
+
     public async Task AddProgressEntryAsync(ProgressEntry entry, int? totalEpisodes = null)
     {
         await using var connection = await OpenAsync();

@@ -30,6 +30,16 @@ public static class RatingScale
             MidpointRounding.AwayFromZero);
     }
 
+    public static double? GetPercentage(double? rank)
+    {
+        if (rank is null)
+        {
+            return null;
+        }
+
+        return Math.Clamp(rank.Value / RankMaximum, 0, 1);
+    }
+
     public static void Validate(MediaExperience experience)
     {
         if (!IsValidAllure(experience.Allure)

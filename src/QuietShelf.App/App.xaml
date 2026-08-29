@@ -10,33 +10,81 @@
                 <ui:ControlsDictionary />
             </ResourceDictionary.MergedDictionaries>
 
-            <SolidColorBrush x:Key="PageBrush" Color="#F5F4F0" />
-            <SolidColorBrush x:Key="LibraryPaneBrush" Color="#EFEEE9" />
-            <SolidColorBrush x:Key="DetailPaneBrush" Color="#F7F6F2" />
+            <SolidColorBrush x:Key="PageBrush" Color="#E9EEE9" />
+            <SolidColorBrush x:Key="LibraryPaneBrush" Color="#F8F8F5" />
+            <SolidColorBrush x:Key="DetailPaneBrush" Color="#F3F5F1" />
             <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
-            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#F8F8F4" />
-            <SolidColorBrush x:Key="TextBrush" Color="#232622" />
-            <SolidColorBrush x:Key="MutedBrush" Color="#636A64" />
-            <SolidColorBrush x:Key="MutedStrongBrush" Color="#505852" />
-            <SolidColorBrush x:Key="AccentBrush" Color="#2F5A47" />
-            <SolidColorBrush x:Key="AccentSoftBrush" Color="#E6EEE9" />
-            <SolidColorBrush x:Key="AccentLineBrush" Color="#BFD0C5" />
+            <SolidColorBrush x:Key="SurfaceSecondaryBrush" Color="#E7ECE7" />
+            <SolidColorBrush x:Key="SurfaceRaisedBrush" Color="#FCFDFB" />
+            <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#F0F5F0" />
+            <SolidColorBrush x:Key="TextBrush" Color="#18221C" />
+            <SolidColorBrush x:Key="MutedBrush" Color="#68736C" />
+            <SolidColorBrush x:Key="MutedStrongBrush" Color="#445149" />
+            <SolidColorBrush x:Key="AccentBrush" Color="#1F6248" />
+            <SolidColorBrush x:Key="AccentStrongBrush" Color="#174936" />
+            <SolidColorBrush x:Key="AccentSoftBrush" Color="#DCECE3" />
+            <SolidColorBrush x:Key="AccentLineBrush" Color="#ACC8B7" />
+            <SolidColorBrush x:Key="WarmBrush" Color="#C98732" />
+            <SolidColorBrush x:Key="WarmSoftBrush" Color="#F6E8CE" />
             <SolidColorBrush x:Key="ActiveSurfaceBrush" Color="#FFFFFF" />
             <SolidColorBrush x:Key="HeroLineBrush" Color="#DADDD7" />
-            <SolidColorBrush x:Key="TimelineBrush" Color="#DADDD7" />
-            <SolidColorBrush x:Key="ScoreBrush" Color="#A06A2A" />
+            <SolidColorBrush x:Key="TimelineBrush" Color="#CFD9D2" />
+            <SolidColorBrush x:Key="ScoreBrush" Color="#A66D19" />
             <SolidColorBrush x:Key="ScoreSoftBrush" Color="#F7F0E5" />
             <SolidColorBrush x:Key="WarningSoftBrush" Color="#F6EEE0" />
             <SolidColorBrush x:Key="DangerSoftBrush" Color="#F8E9E7" />
-            <SolidColorBrush x:Key="DividerBrush" Color="#DADDD7" />
+            <SolidColorBrush x:Key="DividerBrush" Color="#D6DED7" />
 
-            <DropShadowEffect x:Key="CardShadow" Color="#273128" BlurRadius="12" ShadowDepth="2" Opacity="0.06" />
-            <DropShadowEffect x:Key="HeroShadow" Color="#273128" BlurRadius="18" ShadowDepth="3" Opacity="0.12" />
+            <DropShadowEffect x:Key="CardShadow" Color="#193627" BlurRadius="18" ShadowDepth="3" Opacity="0.09" />
+            <DropShadowEffect x:Key="HeroShadow" Color="#193627" BlurRadius="28" ShadowDepth="7" Opacity="0.13" />
+            <DropShadowEffect x:Key="FloatShadow" Color="#173125" BlurRadius="36" ShadowDepth="10" Opacity="0.15" />
 
             <CornerRadius x:Key="CardRadius">12</CornerRadius>
             <Thickness x:Key="PagePadding">28</Thickness>
             <Thickness x:Key="CardPadding">18</Thickness>
             <converters:CoverImageConverter x:Key="CoverImageConverter" />
+
+            <Style x:Key="DialogEyebrowStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+            </Style>
+            <Style x:Key="DialogTitleStyle" TargetType="TextBlock">
+                <Setter Property="Margin" Value="0,5,0,0" />
+                <Setter Property="FontSize" Value="27" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            </Style>
+            <Style x:Key="DialogDescriptionStyle" TargetType="TextBlock">
+                <Setter Property="Margin" Value="0,7,0,0" />
+                <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+            <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+                <Setter Property="Margin" Value="0,0,0,7" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{StaticResource MutedStrongBrush}" />
+            </Style>
+            <Style x:Key="FieldHintStyle" TargetType="TextBlock">
+                <Setter Property="Margin" Value="2,7,0,0" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+            <Style x:Key="FormSectionStyle" TargetType="Border">
+                <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="15" />
+                <Setter Property="Padding" Value="20" />
+            </Style>
+            <Style x:Key="DialogActionBarStyle" TargetType="Border">
+                <Setter Property="Margin" Value="0,18,0,0" />
+                <Setter Property="Padding" Value="18,14" />
+                <Setter Property="Background" Value="{StaticResource SurfaceSecondaryBrush}" />
+                <Setter Property="CornerRadius" Value="14" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

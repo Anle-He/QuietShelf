@@ -6,25 +6,30 @@
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="Assets/app-icon.ico"
         Background="{StaticResource PageBrush}" FontFamily="Segoe UI Variable Text, Segoe UI, Microsoft YaHei UI">
     <Grid>
-        <Grid Margin="32,28,32,30">
+        <Grid Margin="30">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
             <Grid>
-                <StackPanel>
-                    <TextBlock Text="封面画廊" FontSize="27" FontWeight="DemiBold" />
-                    <TextBlock x:Name="CoverCountText" Margin="0,7,0,0" Foreground="{StaticResource MutedBrush}" />
+                <Grid.ColumnDefinitions><ColumnDefinition Width="48"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Border Width="40" Height="40" CornerRadius="12" Background="{StaticResource AccentSoftBrush}" VerticalAlignment="Top">
+                    <ui:SymbolIcon Symbol="ImageMultiple24" FontSize="20" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Border>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="COVERS / 作品视觉" Style="{StaticResource DialogEyebrowStyle}"/>
+                    <TextBlock Text="封面画廊" Style="{StaticResource DialogTitleStyle}" />
+                    <TextBlock x:Name="CoverCountText" Style="{StaticResource DialogDescriptionStyle}" />
                 </StackPanel>
-                <ui:Button HorizontalAlignment="Right" VerticalAlignment="Center" Appearance="Primary"
+                <ui:Button Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center" Appearance="Primary"
                            Content="添加封面" Icon="{ui:SymbolIcon Add24}" Click="AddCovers_Click" />
             </Grid>
 
             <Grid Grid.Row="1" Margin="0,24,0,0">
-                <Border x:Name="EmptyState" Background="{StaticResource SurfaceBrush}"
+                <Border x:Name="EmptyState" Background="{StaticResource SurfaceRaisedBrush}"
                         BorderBrush="{StaticResource DividerBrush}" BorderThickness="1"
-                        CornerRadius="16" Padding="32">
+                        CornerRadius="18" Padding="32" Effect="{StaticResource CardShadow}">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                         <Border Width="78" Height="96" CornerRadius="10" Background="{StaticResource AccentSoftBrush}"
                                 BorderBrush="#BCD1C3" BorderThickness="1">
@@ -52,9 +57,9 @@
                             <DataTemplate>
                                 <Grid x:Name="CoverTile" Width="180" Height="250" Margin="0,0,16,16"
                                       Cursor="Hand" ToolTip="单击查看大图">
-                                    <Border x:Name="CoverFrame" Background="{StaticResource SurfaceBrush}"
+                                    <Border x:Name="CoverFrame" Background="{StaticResource SurfaceRaisedBrush}"
                                             BorderBrush="{StaticResource DividerBrush}" BorderThickness="1"
-                                            CornerRadius="12" Padding="9">
+                                            CornerRadius="14" Padding="9" Effect="{StaticResource CardShadow}">
                                         <Grid>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="*" />
@@ -154,7 +159,7 @@
         <Grid x:Name="PreviewOverlay" Background="#B8151A17" Visibility="Collapsed"
               MouseLeftButtonUp="ClosePreview_Click">
             <Border Width="500" MaxHeight="590" Padding="24" Background="{StaticResource SurfaceBrush}"
-                    CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    CornerRadius="18" HorizontalAlignment="Center" VerticalAlignment="Center" Effect="{StaticResource FloatShadow}"
                     MouseLeftButtonUp="PreviewPanel_Click">
                 <Grid>
                     <Grid.RowDefinitions>

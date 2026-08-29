@@ -1,6 +1,10 @@
 using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using QuietShelf.Models;
 
 namespace QuietShelf.Tests;
 
@@ -23,13 +27,18 @@ public sealed class UiSmokeTests
                 Assert.IsAssignableFrom<ItemsControl>(mainWindow.FindName("ActiveShelfList"));
                 Assert.IsAssignableFrom<TextBlock>(mainWindow.FindName("LibraryCountText"));
                 Assert.IsAssignableFrom<ScrollViewer>(mainWindow.FindName("DashboardScroll"));
-                Assert.IsAssignableFrom<ItemsControl>(mainWindow.FindName("DashboardRecentList"));
+                Assert.IsAssignableFrom<FrameworkElement>(mainWindow.FindName("DashboardTimelineList"));
                 Assert.IsAssignableFrom<TextBlock>(mainWindow.FindName("DashboardWorkCountText"));
                 Assert.IsAssignableFrom<Button>(mainWindow.FindName("HomeButton"));
                 Assert.IsAssignableFrom<FrameworkElement>(mainWindow.FindName("RegularWorksHeader"));
                 Assert.IsAssignableFrom<TextBlock>(mainWindow.FindName("DetailKickerText"));
+                AssertExperienceRatingTemplate(mainWindow);
+                AssertTimelineTemplate(mainWindow);
                 var addWork = new AddWorkWindow();
+                Assert.IsType<Border>(addWork.FindName("WorkFormSection"));
                 var addExperience = new AddExperienceWindow("ui-test", "book", completing: true);
+                Assert.IsType<Border>(addExperience.FindName("ExperienceDateSection"));
+                Assert.IsType<Border>(addExperience.FindName("RatingSection"));
                 var allureBox = Assert.IsType<ComboBox>(addExperience.FindName("AllureBox"));
                 Assert.Equal(4, allureBox.Items.Count);
                 var completedOn = Assert.IsType<DatePicker>(addExperience.FindName("CompletedOnPicker"));
@@ -46,6 +55,7 @@ public sealed class UiSmokeTests
                     new DateOnly(2026, 8, 1),
                     totalEpisodes: 12,
                     watchedEpisodes: 2);
+                Assert.IsType<Border>(progress.FindName("ProgressFormSection"));
                 var metricBox = Assert.IsType<ComboBox>(progress.FindName("MetricBox"));
                 metricBox.SelectedIndex = 1;
                 var episodePanel = Assert.IsAssignableFrom<FrameworkElement>(progress.FindName("EpisodeTotalPanel"));
@@ -61,7 +71,12 @@ public sealed class UiSmokeTests
                 covers.UpdateLayout();
                 Assert.True(covers.ActualWidth >= 720);
                 Assert.True(covers.ActualHeight >= 540);
+                SaveSnapshot(covers, "cover-gallery.png");
                 covers.Close();
+
+                SnapshotWindow(addWork, "add-work.png");
+                SnapshotWindow(progress, "add-progress.png");
+                SnapshotWindow(addExperience, "add-experience.png");
 
                 progress.Close();
                 addExperience.Close();
@@ -82,5 +97,127 @@ public sealed class UiSmokeTests
         {
             ExceptionDispatchInfo.Capture(failure).Throw();
         }
+    }
+
+    private static void SnapshotWindow(Window window, string fileName)
+    {
+        window.Show();
+        window.UpdateLayout();
+        SaveSnapshot(window, fileName);
+        window.Hide();
+    }
+
+    private static void AssertTimelineTemplate(MainWindow mainWindow)
+    {
+        var timeline = Assert.IsType<ItemsControl>(mainWindow.FindName("DashboardTimelineList"));
+        var presenter = new ContentPresenter
+        {
+            ContentTemplate = timeline.ItemTemplate,
+            Resources = mainWindow.Resources,
+            Width = 740,
+            Content = new DashboardTimelineDay
+            {
+                Date = new DateOnly(2026, 8, 28),
+                Items = new[] { "completion", "progress" }.Select(type => new DashboardTimelineItem
+                {
+                    Id = type, WorkId = "timeline-test", Title = "一本正在读的书", Kind = "book",
+                    EventType = type, Metric = "duration", Amount = 30,
+                    Notes = type == "completion" ? "合上书之后，仍然记得这一段旅程。" : null
+                }).ToArray()
+            }
+        };
+        presenter.Measure(new Size(presenter.Width, double.PositiveInfinity));
+        presenter.Arrange(new Rect(presenter.DesiredSize));
+        presenter.UpdateLayout();
+        var buttons = Descendants(presenter).OfType<Button>().ToArray();
+        Assert.Equal(2, buttons.Length);
+        Assert.All(buttons, button =>
+        {
+            Assert.IsType<DashboardTimelineItem>(button.Tag);
+            Assert.True(button.ActualWidth > 500, "Timeline actions should fill the date card.");
+            Assert.True(button.Focusable);
+        });
+        SaveSnapshot(presenter, "timeline-day.png");
+    }
+
+    private static IEnumerable<DependencyObject> Descendants(DependencyObject parent)
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+            yield return child;
+            foreach (var descendant in Descendants(child)) yield return descendant;
+        }
+    }
+
+    private static void AssertExperienceRatingTemplate(MainWindow mainWindow)
+    {
+        var history = Assert.IsType<ListBox>(mainWindow.FindName("HistoryList"));
+        var presenter = new ContentPresenter
+        {
+            ContentTemplate = history.ItemTemplate,
+            Resources = mainWindow.Resources,
+            Width = 880
+        };
+
+        void Display(MediaExperience experience)
+        {
+            presenter.Content = new ExperienceArchiveCard { ArchiveNumber = 1, Experience = experience };
+            presenter.Measure(new Size(presenter.Width, double.PositiveInfinity));
+            presenter.Arrange(new Rect(presenter.DesiredSize));
+            presenter.UpdateLayout();
+        }
+
+        Grid Scores() => Assert.IsType<Grid>(history.ItemTemplate.FindName("DimensionScores", presenter));
+        TextBlock IncompleteMessage() => Assert.IsType<TextBlock>(history.ItemTemplate.FindName("IncompleteRating", presenter));
+        string[] Values() => Scores().Children.OfType<StackPanel>()
+            .SelectMany(panel => panel.Children.OfType<TextBlock>())
+            .Select(text => new TextRange(text.ContentStart, text.ContentEnd).Text).ToArray();
+
+        Display(new MediaExperience
+        {
+            WorkId = "ui-rating",
+            StartedOn = new DateOnly(2026, 8, 26),
+            CompletedOn = new DateOnly(2026, 8, 28),
+            ProgressDayCount = 2,
+            ProgressEntryCount = 3,
+            Allure = 3,
+            Immersion = 5,
+            Rationality = 4,
+            Illumination = 4
+        });
+        Assert.Equal(Visibility.Visible, Scores().Visibility);
+        Assert.Equal(Visibility.Collapsed, IncompleteMessage().Visibility);
+        Assert.Equal(["Allure", "3 / 3", "Immersion", "5 / 5", "Rationality", "4 / 5", "Illumination", "4 / 5"], Values());
+        SaveSnapshot(presenter, "experience-ratings.png");
+
+        Display(new MediaExperience { WorkId = "ui-rating", Allure = 3 });
+        Assert.Equal(Visibility.Collapsed, Scores().Visibility);
+        Assert.Equal(Visibility.Visible, IncompleteMessage().Visibility);
+
+        Display(new MediaExperience { WorkId = "ui-rating", Allure = 1, Immersion = 2, Rationality = 3, Illumination = 4 });
+        Assert.Equal(Visibility.Visible, Scores().Visibility);
+        Assert.Equal(Visibility.Collapsed, IncompleteMessage().Visibility);
+        Assert.Equal(["Allure", "1 / 3", "Immersion", "2 / 5", "Rationality", "3 / 5", "Illumination", "4 / 5"], Values());
+    }
+
+    private static void SaveSnapshot(FrameworkElement element, string fileName)
+    {
+        var directory = Environment.GetEnvironmentVariable("QUIETSHELF_UI_SNAPSHOT_DIR");
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(directory);
+        var bitmap = new RenderTargetBitmap(
+            (int)Math.Ceiling(element.ActualWidth * 2),
+            (int)Math.Ceiling(element.ActualHeight * 2),
+            192, 192, PixelFormats.Pbgra32);
+        bitmap.Render(element);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var stream = File.Create(Path.Combine(directory, fileName));
+        encoder.Save(stream);
     }
 }

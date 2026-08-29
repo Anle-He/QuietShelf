@@ -70,10 +70,15 @@ public sealed class Database
         {
             CreateMigrationBackup(connection);
         }
+        if (schemaVersion < CurrentSchemaVersion)
+        {
+            var journal = connection.CreateCommand();
+            journal.CommandText = "PRAGMA journal_mode = WAL;";
+            await journal.ExecuteNonQueryAsync();
+        }
 
         var command = connection.CreateCommand();
         command.CommandText = """
-            PRAGMA journal_mode = WAL;
             PRAGMA foreign_keys = ON;
 
             -- 旧表保留用于无损迁移和回退，不再作为新版界面的数据源。
