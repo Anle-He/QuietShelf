@@ -21,6 +21,9 @@ public sealed class MediaWork
     public string KindLabel => Kind == "book" ? "书籍" : "影视";
     public string KindGlyph => Kind == "book" ? "书" : "影";
     public string ExperienceActionLabel => Kind == "book" ? "阅读" : "观看";
+    public string ExperienceSummaryLabel => ExperienceCount == 0
+        ? "尚无完成记录"
+        : $"已记录 {ExperienceCount} 次";
     public string StatusLabel => HasActiveExperience ? "进行中" : Status switch
     {
         "planned" => Kind == "book" ? "想读" : "想看",

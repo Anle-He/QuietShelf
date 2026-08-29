@@ -67,7 +67,7 @@ public partial class AddWorkWindow : Window
             Subtitle = string.IsNullOrWhiteSpace(SubtitleBox.Text) ? null : SubtitleBox.Text.Trim(),
             Author = kind == "book" && !string.IsNullOrWhiteSpace(AuthorBox.Text) ? AuthorBox.Text.Trim() : null,
             Kind = kind,
-            Status = _existingWork?.Status ?? "planned",
+            Status = _existingWork?.Status,
             TotalEpisodes = _existingWork?.TotalEpisodes,
             CreatedAt = _existingWork?.CreatedAt ?? now,
             UpdatedAt = now

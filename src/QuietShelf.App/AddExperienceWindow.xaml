@@ -13,22 +13,19 @@
                 <ui:SymbolIcon Symbol="CheckmarkCircle24" FontSize="20" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <StackPanel Grid.Column="1">
-                <TextBlock Text="EXPERIENCE / 一次体验" Style="{StaticResource DialogEyebrowStyle}" />
+                <TextBlock Text="ARCHIVE / 完成记录" Style="{StaticResource DialogEyebrowStyle}" />
                 <TextBlock x:Name="HeadingText" Text="记录一次" Style="{StaticResource DialogTitleStyle}" />
-                <TextBlock x:Name="IntroText" Text="先记下开始日期，过程中的进度可以慢慢留下。" Style="{StaticResource DialogDescriptionStyle}" />
+                <TextBlock x:Name="IntroText" Text="只收录已经完成的阅读或观看。" Style="{StaticResource DialogDescriptionStyle}" />
             </StackPanel>
         </Grid>
         <ScrollViewer Grid.Row="1" Margin="0,22,0,0" VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="0,0,8,0">
                 <Border x:Name="ExperienceDateSection" Style="{StaticResource FormSectionStyle}">
                   <StackPanel>
-                    <TextBlock Text="体验周期" FontSize="16" FontWeight="SemiBold"/>
-                    <TextBlock Text="开始和结束日期会出现在时间线与体验归档中。" Style="{StaticResource FieldHintStyle}" Margin="0,5,0,16"/>
-                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                      <StackPanel x:Name="StartDateField"><TextBlock x:Name="StartDateLabel" Text="开始日期" Style="{StaticResource FieldLabelStyle}"/><DatePicker x:Name="StartedOnPicker" Height="42" /></StackPanel>
-                      <StackPanel x:Name="EndDateField" Grid.Column="2"><TextBlock x:Name="EndDateLabel" Text="结束日期" Style="{StaticResource FieldLabelStyle}"/><DatePicker x:Name="CompletedOnPicker" Height="42" /></StackPanel>
-                    </Grid>
-                    <TextBlock x:Name="DateError" Text="结束日期不能早于开始日期" Foreground="#A33A32" Margin="2,7,0,0" Visibility="Collapsed" />
+                    <TextBlock Text="完成时间" FontSize="16" FontWeight="SemiBold"/>
+                    <TextBlock Text="完成日期会进入首页时间线与作品档案。" Style="{StaticResource FieldHintStyle}" Margin="0,5,0,16"/>
+                    <StackPanel x:Name="EndDateField"><TextBlock x:Name="EndDateLabel" Text="完成日期" Style="{StaticResource FieldLabelStyle}"/><DatePicker x:Name="CompletedOnPicker" Height="42" /></StackPanel>
+                    <TextBlock x:Name="DateError" Text="请选择完成日期" Foreground="#A33A32" Margin="2,7,0,0" Visibility="Collapsed" />
                   </StackPanel>
                 </Border>
                 <StackPanel x:Name="CompletionPanel">
@@ -63,7 +60,7 @@
             </StackPanel>
         </ScrollViewer>
         <Border Grid.Row="2" Style="{StaticResource DialogActionBarStyle}"><Grid>
-            <TextBlock Text="归档后仍可继续编辑" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+            <TextBlock Text="保存后会进入作品档案" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><ui:Button Content="取消" Appearance="Secondary" Margin="0,0,10,0" Click="Cancel_Click" />
             <ui:Button x:Name="SaveButton" Content="保存记录" Icon="{ui:SymbolIcon Save24}" Appearance="Primary" Click="Save_Click" IsDefault="True" /></StackPanel>
         </Grid></Border>

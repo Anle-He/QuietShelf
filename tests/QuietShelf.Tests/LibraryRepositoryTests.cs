@@ -200,12 +200,10 @@ public sealed class LibraryRepositoryTests
         Assert.Equal(40, history[0].TotalMinutes);
         Assert.Equal(2, history[0].TotalEpisodes);
         Assert.Equal(12, history[0].AvailableEpisodes);
-        var archive = new ExperienceArchiveCard { ArchiveNumber = 1, Experience = history[0] };
-        Assert.Equal("记录 1 天", archive.ActivityDaysLabel);
     }
 
     [Fact]
-    public async Task RecentTimeline_CombinesProgressAndCompletionAcrossWorks()
+    public async Task RecentTimeline_ListsOnlyCompletedExperiences()
     {
         await using var context = await TempDatabase.CreateAsync();
         var screen = new MediaWork { Title = "timeline-screen", Kind = "screen" };
@@ -234,61 +232,54 @@ public sealed class LibraryRepositoryTests
 
         var timeline = await context.Repository.GetRecentTimelineAsync();
 
-        Assert.Equal(2, timeline.Count);
-        Assert.True(timeline[0].IsLatest);
-        Assert.Equal(screen.Id, timeline[0].WorkId);
-        Assert.Equal("看了 3 集", timeline[0].ActionLabel);
-        Assert.Equal("a useful note", timeline[0].NotesExcerpt);
-        Assert.False(timeline[1].IsLatest);
-        Assert.Equal(book.Id, timeline[1].WorkId);
-        Assert.Equal("完成一次阅读", timeline[1].ActionLabel);
+        var item = Assert.Single(timeline);
+        Assert.True(item.IsLatest);
+        Assert.Equal(book.Id, item.WorkId);
+        Assert.Equal("完成一次阅读", item.ActionLabel);
     }
 
     [Fact]
-    public async Task ActivityHeatmap_GroupsProgressAndCompletionByDay()
+    public async Task DashboardShowcase_RanksCompletedWorksAndAuthorsFromCompleteRatings()
     {
         await using var context = await TempDatabase.CreateAsync();
-        var work = new MediaWork { Title = "Heatmap", Kind = "screen" };
-        await context.Repository.AddWorkAsync(work);
-        var experience = new MediaExperience
+        var alpha = new MediaWork { Title = "Alpha Book", Author = "Alpha", Kind = "book" };
+        var beta = new MediaWork { Title = "Beta Book", Author = "Beta", Kind = "book" };
+        var screen = new MediaWork { Title = "Screen", Kind = "screen" };
+        await context.Repository.AddWorkAsync(alpha);
+        await context.Repository.AddWorkAsync(beta);
+        await context.Repository.AddWorkAsync(screen);
+
+        await context.Repository.AddExperienceAsync(new MediaExperience
         {
-            WorkId = work.Id,
-            StartedOn = new DateOnly(2026, 8, 20)
-        };
-        await context.Repository.AddExperienceAsync(experience);
-        await context.Repository.AddProgressEntryAsync(new ProgressEntry
-        {
-            ExperienceId = experience.Id,
-            LoggedOn = new DateOnly(2026, 8, 26),
-            Metric = "episodes",
-            Amount = 2
+            WorkId = alpha.Id, CompletedOn = new DateOnly(2026, 1, 2),
+            Allure = 3, Immersion = 5, Rationality = 5, Illumination = 5
         });
-        await context.Repository.AddProgressEntryAsync(new ProgressEntry
+        for (var day = 3; day <= 5; day++)
         {
-            ExperienceId = experience.Id,
-            LoggedOn = new DateOnly(2026, 8, 26),
-            Metric = "episodes",
-            Amount = 1
-        });
-        await context.Repository.UpdateExperienceAsync(new MediaExperience
+            await context.Repository.AddExperienceAsync(new MediaExperience
+            {
+                WorkId = beta.Id, CompletedOn = new DateOnly(2026, 1, day),
+                Allure = 3, Immersion = 4, Rationality = 4, Illumination = 4
+            });
+        }
+        await context.Repository.AddExperienceAsync(new MediaExperience
         {
-            Id = experience.Id,
-            WorkId = work.Id,
-            StartedOn = experience.StartedOn,
-            CompletedOn = new DateOnly(2026, 8, 26)
+            WorkId = screen.Id, CompletedOn = new DateOnly(2026, 1, 6)
         });
 
-        var days = await context.Repository.GetActivityHeatmapAsync(new DateOnly(2026, 8, 1), new DateOnly(2026, 8, 31));
+        var showcase = await context.Repository.GetDashboardShowcaseAsync();
 
-        var day = Assert.Single(days);
-        Assert.Equal(new DateOnly(2026, 8, 26), day.Date);
-        Assert.Equal(3, day.ActivityCount);
-        Assert.Equal(1, day.CompletionCount);
-        Assert.Contains("Heatmap", day.TitleSummary);
+        Assert.Equal(3, showcase.CompletedWorks.Count);
+        Assert.Equal(screen.Id, showcase.CompletedWorks[0].WorkId);
+        Assert.Equal(new DateOnly(2026, 1, 2), showcase.CompletedWorks.Single(work => work.WorkId == alpha.Id).FirstCompletedOn);
+        Assert.Equal(2, showcase.TopAuthors.Count);
+        Assert.Equal([1, 2], showcase.TopAuthors.Select(author => author.Position));
+        Assert.All(showcase.TopAuthors, author => Assert.InRange(author.WeightedRank, 0, RatingScale.RankMaximum));
+        Assert.Equal(3, showcase.TopAuthors.Single(author => author.Author == "Beta").RatingCount);
     }
 
     [Fact]
-    public async Task DashboardActivity_TracksHistoricalEditsAndDeletesWithoutInflatingWorkTotals()
+    public async Task DashboardTimeline_TracksCompletionsWithoutInflatingWorkTotals()
     {
         await using var context = await TempDatabase.CreateAsync();
         var work = new MediaWork { Title = "historical-dashboard", Kind = "book" };
@@ -320,10 +311,6 @@ public sealed class LibraryRepositoryTests
         var latest = Assert.Single(await context.Repository.GetRecentTimelineAsync(1));
         Assert.Equal("completion", latest.EventType);
         Assert.Equal(completedOn, latest.LoggedOn);
-        var completionDay = Assert.Single(await context.Repository.GetActivityHeatmapAsync(completedOn, completedOn));
-        Assert.Equal(1, completionDay.ActivityCount);
-        Assert.Equal(1, completionDay.CompletionCount);
-
         var editedOn = startedOn.AddDays(1);
         await context.Repository.UpdateProgressEntryAsync(new ProgressEntry
         {
@@ -331,18 +318,11 @@ public sealed class LibraryRepositoryTests
             Metric = "duration", Amount = 25, CreatedAt = progress.CreatedAt
         });
         var timeline = await context.Repository.GetRecentTimelineAsync();
-        Assert.Equal(new[] { completedOn, editedOn, startedOn }, timeline.Select(item => item.LoggedOn));
-        Assert.Equal(25, timeline[1].Amount);
-        var days = await context.Repository.GetActivityHeatmapAsync(startedOn, completedOn);
-        Assert.Equal(3, days.Count);
-        Assert.All(days, day => Assert.Equal(1, day.ActivityCount));
-
+        Assert.Equal([completedOn], timeline.Select(item => item.LoggedOn));
         await context.Repository.DeleteProgressEntryAsync(progress.Id);
-        Assert.Empty(await context.Repository.GetActivityHeatmapAsync(editedOn, editedOn));
         Assert.DoesNotContain(await context.Repository.GetRecentTimelineAsync(), item => item.Id == progress.Id);
         await context.Repository.DeleteExperienceAsync(experience.Id, work.Id);
         Assert.Empty(await context.Repository.GetRecentTimelineAsync());
-        Assert.Empty(await context.Repository.GetActivityHeatmapAsync(startedOn, completedOn));
         aggregate = Assert.Single(await context.Repository.GetWorksAsync());
         Assert.Equal(0, aggregate.ExperienceCount);
         Assert.Null(aggregate.LatestActivityOn);
@@ -440,12 +420,12 @@ public sealed class LibraryRepositoryTests
 
     [Theory]
     [InlineData(1, 10, 2, 10)]
-    [InlineData(1, null, 2, 2)]
-    [InlineData(1, null, null, 1)]
+    [InlineData(1, null, 2, null)]
+    [InlineData(1, null, null, null)]
     [InlineData(null, 10, null, 10)]
-    [InlineData(null, null, null, 28)]
-    public async Task WorkLatestActivity_UsesCreatedDateOnlyWhenActivityDatesAreMissing(
-        int? startDay, int? completionDay, int? progressDay, int expectedDay)
+    [InlineData(null, null, null, null)]
+    public async Task WorkLatestActivity_UsesOnlyCompletionDates(
+        int? startDay, int? completionDay, int? progressDay, int? expectedDay)
     {
         await using var context = await TempDatabase.CreateAsync();
         var work = new MediaWork { Title = "backdated-activity-test", Kind = "book" };
@@ -469,8 +449,15 @@ public sealed class LibraryRepositoryTests
             });
         }
 
-        Assert.Equal(new DateOnly(2026, 8, expectedDay),
-            (await context.Repository.GetWorkAsync(work.Id))?.LatestActivityOn);
+        var latest = (await context.Repository.GetWorkAsync(work.Id))?.LatestActivityOn;
+        if (expectedDay is { } day)
+        {
+            Assert.Equal(new DateOnly(2026, 8, day), latest);
+        }
+        else
+        {
+            Assert.Null(latest);
+        }
     }
 
     [Fact]

@@ -35,11 +35,7 @@ public sealed partial class LibraryRepository(Database database)
                         THEN 1 ELSE 0 END) AS rated_count,
                ROUND(AVG(CASE WHEN e.completed_on IS NOT NULL
                               THEN calculate_rank(e.allure, e.immersion, e.rationality, e.illumination) END), 1) AS aggregate_rank,
-               MAX(COALESCE(NULLIF(MAX(
-                   COALESCE((SELECT MAX(p.logged_on) FROM progress_entries p WHERE p.experience_id = e.id), ''),
-                   COALESCE(e.completed_on, ''),
-                   COALESCE(e.started_on, '')), ''),
-                   substr(e.created_at, 1, 10))) AS latest_activity,
+               MAX(e.completed_on) AS latest_activity,
                (SELECT c.file_name FROM work_covers c WHERE c.work_id = w.id
                  ORDER BY c.sort_order, c.created_at LIMIT 1) AS primary_cover_file,
                w.author
@@ -203,13 +199,6 @@ public sealed partial class LibraryRepository(Database database)
         var command = connection.CreateCommand();
         command.CommandText = """
             WITH activity AS (
-                SELECT p.id, e.work_id, p.logged_on AS event_on, 'progress' AS event_type,
-                       p.metric, p.amount, p.notes, p.created_at AS event_created
-                FROM progress_entries p
-                JOIN experiences e ON e.id = p.experience_id
-
-                UNION ALL
-
                 SELECT e.id, e.work_id, e.completed_on AS event_on, 'completion' AS event_type,
                        'completion' AS metric, 0 AS amount, e.notes, e.updated_at AS event_created
                 FROM experiences e
@@ -256,45 +245,100 @@ public sealed partial class LibraryRepository(Database database)
         return items;
     }
 
-    public async Task<IReadOnlyList<DashboardActivityDay>> GetActivityHeatmapAsync(DateOnly start, DateOnly end)
+    public async Task<DashboardShowcase> GetDashboardShowcaseAsync()
     {
-        var days = new List<DashboardActivityDay>();
+        var works = new List<DashboardShowcaseItem>();
+        var authors = new List<DashboardAuthorRank>();
         await using var connection = await OpenAsync();
-        var command = connection.CreateCommand();
-        command.CommandText = """
-            WITH activity AS (
-                SELECT e.work_id, p.logged_on AS event_on, 0 AS is_completion
-                FROM progress_entries p
-                JOIN experiences e ON e.id = p.experience_id
-                WHERE p.logged_on BETWEEN $start AND $end
 
-                UNION ALL
-
-                SELECT e.work_id, e.completed_on AS event_on, 1 AS is_completion
-                FROM experiences e
-                WHERE e.completed_on BETWEEN $start AND $end
-            )
-            SELECT a.event_on, COUNT(*) AS activity_count, SUM(a.is_completion) AS completion_count,
-                   GROUP_CONCAT(DISTINCT w.title) AS titles
-            FROM activity a
-            JOIN works w ON w.id = a.work_id
-            GROUP BY a.event_on
-            ORDER BY a.event_on;
+        var worksCommand = connection.CreateCommand();
+        worksCommand.CommandText = """
+            SELECT w.id, w.title, w.kind, w.author,
+                   COUNT(e.id) AS completion_count,
+                   SUM(CASE WHEN e.allure IS NOT NULL AND e.immersion IS NOT NULL
+                                 AND e.rationality IS NOT NULL AND e.illumination IS NOT NULL
+                            THEN 1 ELSE 0 END) AS rating_count,
+                   AVG(calculate_rank(e.allure, e.immersion, e.rationality, e.illumination)) AS aggregate_rank,
+                   MIN(e.completed_on) AS first_completed_on,
+                   MAX(e.completed_on) AS latest_completed_on,
+                   (SELECT c.file_name FROM work_covers c WHERE c.work_id = w.id
+                    ORDER BY c.sort_order, c.created_at LIMIT 1) AS primary_cover_file
+            FROM works w
+            JOIN experiences e ON e.work_id = w.id AND e.completed_on IS NOT NULL
+            GROUP BY w.id
+            ORDER BY latest_completed_on DESC, w.title;
             """;
-        command.Parameters.AddWithValue("$start", start.ToString("yyyy-MM-dd"));
-        command.Parameters.AddWithValue("$end", end.ToString("yyyy-MM-dd"));
-        await using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
+        await using (var reader = await worksCommand.ExecuteReaderAsync())
         {
-            days.Add(new DashboardActivityDay
+            while (await reader.ReadAsync())
             {
-                Date = DateOnly.Parse(reader.GetString(0), CultureInfo.InvariantCulture),
-                ActivityCount = reader.GetInt32(1),
-                CompletionCount = reader.GetInt32(2),
-                TitleSummary = reader.IsDBNull(3) ? string.Empty : reader.GetString(3)
-            });
+                string? primaryCoverPath = null;
+                if (!reader.IsDBNull(9))
+                {
+                    var candidate = database.GetCoverFilePath(reader.GetString(0), reader.GetString(9));
+                    if (File.Exists(candidate))
+                    {
+                        primaryCoverPath = candidate;
+                    }
+                }
+                works.Add(new DashboardShowcaseItem
+                {
+                    WorkId = reader.GetString(0),
+                    Title = reader.GetString(1),
+                    Kind = reader.GetString(2),
+                    Author = reader.IsDBNull(3) ? null : reader.GetString(3),
+                    CompletionCount = reader.GetInt32(4),
+                    RatingCount = reader.GetInt32(5),
+                    AggregateRank = reader.IsDBNull(6) ? null : Math.Round(reader.GetDouble(6), 1, MidpointRounding.AwayFromZero),
+                    FirstCompletedOn = DateOnly.Parse(reader.GetString(7), CultureInfo.InvariantCulture),
+                    LatestCompletedOn = DateOnly.Parse(reader.GetString(8), CultureInfo.InvariantCulture),
+                    PrimaryCoverPath = primaryCoverPath
+                });
+            }
         }
-        return days;
+
+        var authorsCommand = connection.CreateCommand();
+        authorsCommand.CommandText = """
+            WITH rated AS (
+                SELECT w.id AS work_id, TRIM(w.author) AS author,
+                       calculate_rank(e.allure, e.immersion, e.rationality, e.illumination) AS rank
+                FROM experiences e
+                JOIN works w ON w.id = e.work_id
+                WHERE w.kind = 'book' AND e.completed_on IS NOT NULL
+                  AND TRIM(COALESCE(w.author, '')) <> ''
+                  AND e.allure IS NOT NULL AND e.immersion IS NOT NULL
+                  AND e.rationality IS NOT NULL AND e.illumination IS NOT NULL
+            ), global_mean AS (
+                SELECT AVG(rank) AS mean_rank FROM rated
+            ), author_stats AS (
+                SELECT author, COUNT(DISTINCT work_id) AS work_count,
+                       COUNT(*) AS rating_count, AVG(rank) AS mean_rank
+                FROM rated
+                GROUP BY author
+            )
+            SELECT author, work_count, rating_count,
+                   ((rating_count * author_stats.mean_rank) + (2.0 * global_mean.mean_rank)) / (rating_count + 2.0) AS weighted_rank
+            FROM author_stats CROSS JOIN global_mean
+            ORDER BY weighted_rank DESC, rating_count DESC, author
+            LIMIT 3;
+            """;
+        await using (var reader = await authorsCommand.ExecuteReaderAsync())
+        {
+            var position = 1;
+            while (await reader.ReadAsync())
+            {
+                authors.Add(new DashboardAuthorRank
+                {
+                    Position = position++,
+                    Author = reader.GetString(0),
+                    WorkCount = reader.GetInt32(1),
+                    RatingCount = reader.GetInt32(2),
+                    WeightedRank = Math.Round(reader.GetDouble(3), 1, MidpointRounding.AwayFromZero)
+                });
+            }
+        }
+
+        return new DashboardShowcase { CompletedWorks = works, TopAuthors = authors };
     }
 
     public async Task AddProgressEntryAsync(ProgressEntry entry, int? totalEpisodes = null)

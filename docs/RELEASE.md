@@ -18,8 +18,8 @@
 在原始电脑上创建与项目版本完全一致的标签，例如：
 
 ```powershell
-git tag -a v0.1.1 -m "QuietShelf 0.1.1"
-git push origin v0.1.1
+git tag -a v0.1.2 -m "QuietShelf 0.1.2"
+git push origin v0.1.2
 ```
 
 标签会触发 `Release artifacts` 工作流。工作流固定 .NET SDK 10.0.400 和 Inno Setup 6.7.3，校验安装程序下载、还原锁定依赖、检查 framework-dependent 发布目录的必要文件，并重新执行构建和自动测试，然后生成：

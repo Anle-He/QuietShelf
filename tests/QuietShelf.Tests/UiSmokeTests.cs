@@ -23,8 +23,6 @@ public sealed class UiSmokeTests
                 var application = new QuietShelf.App();
                 application.InitializeComponent();
                 var mainWindow = new MainWindow();
-                Assert.IsAssignableFrom<FrameworkElement>(mainWindow.FindName("ActiveShelfPanel"));
-                Assert.IsAssignableFrom<ItemsControl>(mainWindow.FindName("ActiveShelfList"));
                 Assert.IsAssignableFrom<TextBlock>(mainWindow.FindName("LibraryCountText"));
                 Assert.IsAssignableFrom<ScrollViewer>(mainWindow.FindName("DashboardScroll"));
                 Assert.IsAssignableFrom<FrameworkElement>(mainWindow.FindName("DashboardTimelineList"));
@@ -32,34 +30,25 @@ public sealed class UiSmokeTests
                 Assert.IsAssignableFrom<Button>(mainWindow.FindName("HomeButton"));
                 Assert.IsAssignableFrom<FrameworkElement>(mainWindow.FindName("RegularWorksHeader"));
                 Assert.IsAssignableFrom<TextBlock>(mainWindow.FindName("DetailKickerText"));
+                Assert.IsType<StackPanel>(mainWindow.FindName("DashboardShowcasePanel"));
+                Assert.IsType<Border>(mainWindow.FindName("DetailHeroShell"));
                 AssertExperienceRatingTemplate(mainWindow);
                 AssertTimelineTemplate(mainWindow);
                 var addWork = new AddWorkWindow();
                 Assert.IsType<Border>(addWork.FindName("WorkFormSection"));
-                var addExperience = new AddExperienceWindow("ui-test", "book", completing: true);
+                var addExperience = new AddExperienceWindow("ui-test", "book");
                 Assert.IsType<Border>(addExperience.FindName("ExperienceDateSection"));
                 Assert.IsType<Border>(addExperience.FindName("RatingSection"));
                 var allureBox = Assert.IsType<ComboBox>(addExperience.FindName("AllureBox"));
                 Assert.Equal(4, allureBox.Items.Count);
                 var completedOn = Assert.IsType<DatePicker>(addExperience.FindName("CompletedOnPicker"));
+                Assert.NotNull(completedOn.SelectedDate);
                 var dateError = Assert.IsType<TextBlock>(addExperience.FindName("DateError"));
                 var saveButton = Assert.IsAssignableFrom<Button>(addExperience.FindName("SaveButton"));
                 completedOn.SelectedDate = null;
                 saveButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Assert.Equal(Visibility.Visible, dateError.Visibility);
                 Assert.Null(addExperience.Experience);
-
-                var progress = new AddProgressWindow(
-                    "ui-experience",
-                    "screen",
-                    new DateOnly(2026, 8, 1),
-                    totalEpisodes: 12,
-                    watchedEpisodes: 2);
-                Assert.IsType<Border>(progress.FindName("ProgressFormSection"));
-                var metricBox = Assert.IsType<ComboBox>(progress.FindName("MetricBox"));
-                metricBox.SelectedIndex = 1;
-                var episodePanel = Assert.IsAssignableFrom<FrameworkElement>(progress.FindName("EpisodeTotalPanel"));
-                Assert.Equal(Visibility.Visible, episodePanel.Visibility);
 
                 var covers = new ManageCoversWindow(context.Repository, new QuietShelf.Models.MediaWork
                 {
@@ -75,10 +64,8 @@ public sealed class UiSmokeTests
                 covers.Close();
 
                 SnapshotWindow(addWork, "add-work.png");
-                SnapshotWindow(progress, "add-progress.png");
                 SnapshotWindow(addExperience, "add-experience.png");
 
-                progress.Close();
                 addExperience.Close();
                 addWork.Close();
                 mainWindow.Close();
@@ -118,7 +105,7 @@ public sealed class UiSmokeTests
             Content = new DashboardTimelineDay
             {
                 Date = new DateOnly(2026, 8, 28),
-                Items = new[] { "completion", "progress" }.Select(type => new DashboardTimelineItem
+                Items = new[] { "completion" }.Select(type => new DashboardTimelineItem
                 {
                     Id = type, WorkId = "timeline-test", Title = "一本正在读的书", Kind = "book",
                     EventType = type, Metric = "duration", Amount = 30,
@@ -130,7 +117,7 @@ public sealed class UiSmokeTests
         presenter.Arrange(new Rect(presenter.DesiredSize));
         presenter.UpdateLayout();
         var buttons = Descendants(presenter).OfType<Button>().ToArray();
-        Assert.Equal(2, buttons.Length);
+        Assert.Single(buttons);
         Assert.All(buttons, button =>
         {
             Assert.IsType<DashboardTimelineItem>(button.Tag);

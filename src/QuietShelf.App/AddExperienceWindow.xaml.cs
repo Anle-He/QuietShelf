@@ -8,75 +8,53 @@ public partial class AddExperienceWindow : Window
 {
     private readonly string _workId;
     private readonly MediaExperience? _existing;
-    private readonly bool _completing;
 
-    public AddExperienceWindow(string workId, string kind, MediaExperience? existing = null, bool completing = false)
+    public AddExperienceWindow(string workId, string kind, MediaExperience? existing = null)
     {
         _workId = workId;
         _existing = existing;
-        _completing = completing;
         InitializeComponent();
         var editingCompleted = existing?.CompletedOn is not null;
         HeadingText.Text = editingCompleted
             ? (kind == "book" ? "编辑本次阅读" : "编辑本次观看")
-            : completing
-                ? (kind == "book" ? "完成本次阅读" : "完成本次观看")
-                : (kind == "book" ? "开始一次阅读" : "开始一次观看");
+            : (kind == "book" ? "记录读完的一本书" : "记录看完的一部影视");
         IntroText.Text = editingCompleted
             ? "修改日期、最终评分或总结。"
-            : completing ? "完成后可以留下本次评分与总结。" : "先记下开始日期，中途可以随时补记进度。";
-        StartDateLabel.Text = kind == "book" ? "开始阅读" : "开始观看";
-        EndDateLabel.Text = kind == "book" ? "完成阅读" : "结束观看";
+            : "只收录已经完成的这一次，评分与总结可以稍后补充。";
+        EndDateLabel.Text = kind == "book" ? "读完日期" : "看完日期";
         PopulateRatingBox(AllureBox, RatingScale.AllureMaximum);
         foreach (var box in new[] { ImmersionBox, RationalityBox, IlluminationBox })
         {
             PopulateRatingBox(box, RatingScale.DimensionMaximum);
         }
-        StartedOnPicker.SelectedDate = existing?.StartedOn?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today;
-        CompletedOnPicker.SelectedDate = completing
-            ? existing?.CompletedOn?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today
-            : null;
+        CompletedOnPicker.SelectedDate = existing?.CompletedOn?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today;
         NotesBox.Text = existing?.Notes ?? string.Empty;
         SetRating(AllureBox, existing?.Allure);
         SetRating(ImmersionBox, existing?.Immersion);
         SetRating(RationalityBox, existing?.Rationality);
         SetRating(IlluminationBox, existing?.Illumination);
-        CompletionPanel.Visibility = completing ? Visibility.Visible : Visibility.Collapsed;
-        EndDateField.Visibility = completing ? Visibility.Visible : Visibility.Collapsed;
-        Grid.SetColumnSpan(StartDateField, completing ? 1 : 3);
-        StartedOnPicker.IsEnabled = !completing || editingCompleted;
-        SaveButton.Content = editingCompleted ? "保存修改" : completing ? "完成本次" : "开始记录";
-        if (!completing)
-        {
-            Height = 350;
-        }
+        CompletionPanel.Visibility = Visibility.Visible;
+        SaveButton.Content = editingCompleted ? "保存修改" : "保存完成记录";
     }
 
     public MediaExperience? Experience { get; private set; }
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        DateOnly? startedOn = StartedOnPicker.SelectedDate is null ? null : DateOnly.FromDateTime(StartedOnPicker.SelectedDate.Value);
-        DateOnly? completedOn = !_completing || CompletedOnPicker.SelectedDate is null
+        DateOnly? startedOn = _existing?.StartedOn;
+        DateOnly? completedOn = CompletedOnPicker.SelectedDate is null
             ? null
             : DateOnly.FromDateTime(CompletedOnPicker.SelectedDate.Value);
-        if (startedOn is null)
+        if (completedOn is null)
         {
-            DateError.Text = "请选择开始日期";
-            DateError.Visibility = Visibility.Visible;
-            StartedOnPicker.Focus();
-            return;
-        }
-        if (_completing && completedOn is null)
-        {
-            DateError.Text = "请选择结束日期";
+            DateError.Text = "请选择完成日期";
             DateError.Visibility = Visibility.Visible;
             CompletedOnPicker.Focus();
             return;
         }
         if (startedOn is not null && completedOn is not null && completedOn < startedOn)
         {
-            DateError.Text = "结束日期不能早于开始日期";
+            DateError.Text = "完成日期不能早于原有开始日期";
             DateError.Visibility = Visibility.Visible;
             CompletedOnPicker.Focus();
             return;
@@ -89,11 +67,11 @@ public partial class AddExperienceWindow : Window
             WorkId = _workId,
             StartedOn = startedOn,
             CompletedOn = completedOn,
-            Allure = _completing ? GetRating(AllureBox) : null,
-            Immersion = _completing ? GetRating(ImmersionBox) : null,
-            Rationality = _completing ? GetRating(RationalityBox) : null,
-            Illumination = _completing ? GetRating(IlluminationBox) : null,
-            Notes = _completing && !string.IsNullOrWhiteSpace(NotesBox.Text) ? NotesBox.Text.Trim() : null,
+            Allure = GetRating(AllureBox),
+            Immersion = GetRating(ImmersionBox),
+            Rationality = GetRating(RationalityBox),
+            Illumination = GetRating(IlluminationBox),
+            Notes = !string.IsNullOrWhiteSpace(NotesBox.Text) ? NotesBox.Text.Trim() : null,
             CreatedAt = _existing?.CreatedAt ?? now,
             UpdatedAt = now
         };

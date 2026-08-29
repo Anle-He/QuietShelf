@@ -13,9 +13,9 @@
                 <ui:SymbolIcon Symbol="Library24" FontSize="20" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <StackPanel Grid.Column="1">
-                <TextBlock Text="LIBRARY / 新条目" Style="{StaticResource DialogEyebrowStyle}" />
-                <TextBlock x:Name="HeadingText" Text="添加作品" Style="{StaticResource DialogTitleStyle}" />
-                <TextBlock x:Name="DescriptionText" Text="先收进书架，开始阅读或观看时再留下进度。" Style="{StaticResource DialogDescriptionStyle}" />
+                <TextBlock Text="LIBRARY / 作品资料" Style="{StaticResource DialogEyebrowStyle}" />
+                <TextBlock x:Name="HeadingText" Text="收录作品" Style="{StaticResource DialogTitleStyle}" />
+                <TextBlock x:Name="DescriptionText" Text="先建立作品资料，完成后再留下属于你的记录。" Style="{StaticResource DialogDescriptionStyle}" />
             </StackPanel>
         </Grid>
         <ScrollViewer Grid.Row="1" Margin="0,22,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -35,7 +35,7 @@
                     <ui:TextBox x:Name="AuthorBox" MaxLength="200" Height="42" PlaceholderText="例如：石黑一雄" />
                 </StackPanel>
                 <Border Margin="0,20,0,0" Padding="13,11" CornerRadius="10" Background="{StaticResource AccentSoftBrush}">
-                    <TextBlock Text="加入后先放在想读 / 想看；第一次记录时会自动进入进行中。" Foreground="{StaticResource AccentStrongBrush}" TextWrapping="Wrap" />
+                    <TextBlock Text="这里只保存作品资料，不代表阅读或观看状态。" Foreground="{StaticResource AccentStrongBrush}" TextWrapping="Wrap" />
                 </Border>
               </StackPanel>
             </Border>
@@ -44,7 +44,7 @@
             <Grid><TextBlock Text="稍后可在详情页继续补充" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <ui:Button Content="取消" Appearance="Secondary" Margin="0,0,10,0" Click="Cancel_Click" />
-                <ui:Button x:Name="AddButton" Content="添加作品" Icon="{ui:SymbolIcon Add24}" Appearance="Primary" Click="Save_Click" IsDefault="True" IsEnabled="False" />
+                <ui:Button x:Name="AddButton" Content="收录作品" Icon="{ui:SymbolIcon Add24}" Appearance="Primary" Click="Save_Click" IsDefault="True" IsEnabled="False" />
             </StackPanel></Grid>
         </Border>
     </Grid>

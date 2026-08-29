@@ -11,13 +11,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private readonly Database _database = new();
     private LibraryRepository? _repository;
     private IReadOnlyList<MediaWork> _allWorks = [];
-    private IReadOnlyList<ActiveWorkCard> _allActiveCards = [];
     private IReadOnlyList<DashboardTimelineItem> _dashboardTimelineItems = [];
-    private IReadOnlyList<DashboardActivityDay> _dashboardActivityDays = [];
+    private DashboardShowcase _dashboardShowcase = new();
     private string _kindFilter = "all";
     private string? _selectedWorkId;
     private MediaWork? _selectedWork;
-    private MediaExperience? _activeExperience;
     private int _selectionLoadVersion;
     private CancellationTokenSource? _searchDebounceCancellation;
     private bool _isApplyingFilters;
@@ -31,13 +29,12 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     }
 
     public ObservableCollection<MediaWork> VisibleWorks { get; } = [];
-    public ObservableCollection<ActiveWorkCard> ActiveWorks { get; } = [];
-    public ObservableCollection<ActiveWorkCard> DashboardActiveWorks { get; } = [];
     public ObservableCollection<DashboardTimelineDay> DashboardTimelineDays { get; } = [];
-    public ObservableCollection<DashboardHeatmapDay> DashboardHeatmapDays { get; } = [];
-    public ObservableCollection<string> DashboardHeatmapWeekLabels { get; } = [];
+    public ObservableCollection<DashboardShowcaseItem> DashboardTopBooks { get; } = [];
+    public ObservableCollection<DashboardShowcaseItem> DashboardTopScreens { get; } = [];
+    public ObservableCollection<DashboardShowcaseItem> DashboardRecentWorks { get; } = [];
+    public ObservableCollection<DashboardAuthorRank> DashboardTopAuthors { get; } = [];
     public ObservableCollection<ExperienceArchiveCard> CompletedExperiences { get; } = [];
-    public ObservableCollection<ProgressEntry> ProgressEntries { get; } = [];
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
@@ -160,7 +157,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
         _allWorks = await _repository.GetWorksAsync();
-        await ReloadActiveShelfAsync();
+        await ReloadDashboardAsync();
         if (selectWorkId is not null)
         {
             _selectedWorkId = selectWorkId;
@@ -170,105 +167,79 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         await ApplyFiltersAsync(reloadSelected: true);
     }
 
-    private async Task ReloadActiveShelfAsync()
+    private async Task ReloadDashboardAsync()
     {
         if (_repository is null)
         {
             return;
         }
 
-        var activeWorks = _allWorks.Where(work => work.HasActiveExperience).ToList();
-        var experiencesTask = _repository.GetActiveExperiencesAsync();
         var timelineTask = _repository.GetRecentTimelineAsync();
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        var daysSinceMonday = ((int)today.DayOfWeek + 6) % 7;
-        var currentMonday = today.AddDays(-daysSinceMonday);
-        var heatmapStart = currentMonday.AddDays(-77);
-        var heatmapTask = _repository.GetActivityHeatmapAsync(heatmapStart, today);
-        var experiences = await experiencesTask;
-
-        var cards = new List<ActiveWorkCard>();
-        foreach (var work in activeWorks)
-        {
-            if (experiences.TryGetValue(work.Id, out var experience))
-            {
-                cards.Add(new ActiveWorkCard { Work = work, Experience = experience });
-            }
-        }
-        _allActiveCards = cards;
+        var showcaseTask = _repository.GetDashboardShowcaseAsync();
         _dashboardTimelineItems = await timelineTask;
-        _dashboardActivityDays = await heatmapTask;
+        _dashboardShowcase = await showcaseTask;
         RefreshDashboard();
     }
 
     private void RefreshDashboard()
     {
-        DashboardActiveWorks.Clear();
-        foreach (var card in _allActiveCards)
-        {
-            DashboardActiveWorks.Add(card);
-        }
-
         DashboardTimelineDays.Clear();
         foreach (var day in _dashboardTimelineItems.GroupBy(item => item.LoggedOn))
         {
             DashboardTimelineDays.Add(new DashboardTimelineDay { Date = day.Key, Items = day.ToList() });
         }
 
-        RefreshDashboardHeatmap();
-
         DashboardWorkCountText.Text = _allWorks.Count.ToString();
-        DashboardActiveCountText.Text = _allActiveCards.Count.ToString();
+        DashboardActiveCountText.Text = _allWorks.Sum(work => work.RatedExperienceCount).ToString();
         DashboardExperienceCountText.Text = _allWorks.Sum(work => work.ExperienceCount).ToString();
-        DashboardHero.DataContext = _allActiveCards.FirstOrDefault();
-        DashboardActiveSection.Visibility = _allActiveCards.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-        DashboardHeroEmptyContent.Visibility = _allActiveCards.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         DashboardEmptyState.Visibility = _allWorks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         DashboardTimelineList.Visibility = _dashboardTimelineItems.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         DashboardTimelineEmptyState.Visibility = _allWorks.Count > 0 && _dashboardTimelineItems.Count == 0
             ? Visibility.Visible
             : Visibility.Collapsed;
+        RefreshDashboardShowcase();
     }
 
-    private void RefreshDashboardHeatmap()
+    private void RefreshDashboardShowcase()
     {
-        DashboardHeatmapDays.Clear();
-        DashboardHeatmapWeekLabels.Clear();
+        static IEnumerable<DashboardShowcaseItem> Ranked(IEnumerable<DashboardShowcaseItem> works) =>
+            works.Where(work => work.AggregateRank is not null)
+                .OrderByDescending(work => work.AggregateRank)
+                .ThenByDescending(work => work.RatingCount)
+                .ThenByDescending(work => work.LatestCompletedOn)
+                .Take(3);
 
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        var daysSinceMonday = ((int)today.DayOfWeek + 6) % 7;
-        var currentMonday = today.AddDays(-daysSinceMonday);
-        var firstMonday = currentMonday.AddDays(-77);
-        var activityByDate = _dashboardActivityDays.ToDictionary(day => day.Date);
-
-        for (var week = 0; week < 12; week++)
+        DashboardTopBooks.Clear();
+        foreach (var work in Ranked(_dashboardShowcase.CompletedWorks.Where(work => work.Kind == "book")))
         {
-            var weekStart = firstMonday.AddDays(week * 7);
-            var previousWeek = weekStart.AddDays(-7);
-            DashboardHeatmapWeekLabels.Add(week == 0 || weekStart.Month != previousWeek.Month
-                ? $"{weekStart.Month}月"
-                : string.Empty);
+            DashboardTopBooks.Add(work);
+        }
+        DashboardTopScreens.Clear();
+        foreach (var work in Ranked(_dashboardShowcase.CompletedWorks.Where(work => work.Kind == "screen")))
+        {
+            DashboardTopScreens.Add(work);
+        }
+        DashboardRecentWorks.Clear();
+        foreach (var work in _dashboardShowcase.CompletedWorks.OrderByDescending(work => work.LatestCompletedOn).Take(3))
+        {
+            DashboardRecentWorks.Add(work);
+        }
+        DashboardTopAuthors.Clear();
+        foreach (var author in _dashboardShowcase.TopAuthors)
+        {
+            DashboardTopAuthors.Add(author);
         }
 
-        for (var weekday = 0; weekday < 7; weekday++)
-        {
-            for (var week = 0; week < 12; week++)
-            {
-                var date = firstMonday.AddDays(week * 7 + weekday);
-                activityByDate.TryGetValue(date, out var activity);
-                DashboardHeatmapDays.Add(new DashboardHeatmapDay
-                {
-                    Date = date,
-                    ActivityCount = activity?.ActivityCount ?? 0,
-                    CompletionCount = activity?.CompletionCount ?? 0,
-                    TitleSummary = activity?.TitleSummary ?? string.Empty,
-                    IsFuture = date > today
-                });
-            }
-        }
-
-        DashboardHeatmapRangeText.Text = $"{firstMonday:M月d日} — {today:M月d日}";
-        DashboardHeatmapPanel.Visibility = _allWorks.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        var year = DateTime.Today.Year;
+        var firstBook = _dashboardShowcase.CompletedWorks
+            .Where(work => work.Kind == "book" && work.FirstCompletedOn.Year == year)
+            .OrderBy(work => work.FirstCompletedOn)
+            .ThenBy(work => work.Title)
+            .FirstOrDefault();
+        DashboardFirstBookCard.DataContext = firstBook;
+        DashboardFirstBookCard.Visibility = firstBook is null ? Visibility.Collapsed : Visibility.Visible;
+        DashboardFirstBookEmpty.Visibility = firstBook is null ? Visibility.Visible : Visibility.Collapsed;
+        DashboardShowcasePanel.Visibility = _allWorks.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private async Task ApplyFiltersAsync(bool reloadSelected = false)
@@ -281,10 +252,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
               || (work.Subtitle?.Contains(query, StringComparison.CurrentCultureIgnoreCase) ?? false)
               || (work.Author?.Contains(query, StringComparison.CurrentCultureIgnoreCase) ?? false))).ToList();
 
-        var activeIds = _allActiveCards.Select(card => card.Work.Id).ToHashSet(StringComparer.Ordinal);
-        var matchingIds = matches.Select(work => work.Id).ToHashSet(StringComparer.Ordinal);
-        var activeMatches = _allActiveCards.Where(card => matchingIds.Contains(card.Work.Id)).ToList();
-        var regularMatches = matches.Where(work => !activeIds.Contains(work.Id)).ToList();
+        var regularMatches = matches;
         var selected = _showingDashboard ? null : matches.FirstOrDefault(work => work.Id == _selectedWorkId);
         if (!_showingDashboard && selected is null && matches.Count > 0 && string.IsNullOrWhiteSpace(query))
         {
@@ -300,13 +268,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 VisibleWorks.Add(work);
             }
 
-            ActiveWorks.Clear();
-            foreach (var card in activeMatches)
-            {
-                ActiveWorks.Add(card);
-            }
-
-            WorkList.SelectedItem = selected is not null && !activeIds.Contains(selected.Id) ? selected : null;
+            WorkList.SelectedItem = selected;
         }
         finally
         {
@@ -318,8 +280,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
         LibraryCountText.Text = $"{_allWorks.Count} 部作品";
-        ActiveShelfPanel.Visibility = activeMatches.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-        ActiveShelfCountText.Text = $"{activeMatches.Count} 项进行中";
         RegularWorksHeader.Visibility = regularMatches.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         EmptyState.Visibility = matches.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         WorkList.Visibility = regularMatches.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
@@ -374,7 +334,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         var loadVersion = ++_selectionLoadVersion;
         _selectedWork = null;
-        _activeExperience = null;
         var selectedWorkTask = _repository.GetWorkAsync(workId);
         var coversTask = _repository.GetCoversAsync(workId);
         var experiencesTask = _repository.GetExperiencesAsync(workId);
@@ -396,25 +355,18 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         var covers = await coversTask;
         var allExperiences = await experiencesTask;
-        var activeExperience = allExperiences.FirstOrDefault(experience => experience.StartedOn is not null && experience.CompletedOn is null);
-        IReadOnlyList<ProgressEntry> progressEntries = activeExperience is null
-            ? []
-            : await _repository.GetProgressEntriesAsync(activeExperience.Id);
         if (loadVersion != _selectionLoadVersion || _selectedWorkId != workId)
         {
             return;
         }
 
         _selectedWork = selectedWork;
-        _activeExperience = activeExperience;
         _showingDashboard = false;
         DashboardScroll.Visibility = Visibility.Collapsed;
         HomeButton.Appearance = Wpf.Ui.Controls.ControlAppearance.Secondary;
 
         RenderCoverStack(covers);
-        DetailKickerText.Text = _activeExperience is not null
-            ? _selectedWork.Kind == "book" ? "正在阅读" : "正在观看"
-            : "作品档案";
+        DetailKickerText.Text = _selectedWork.Kind == "book" ? "书籍档案" : "影视档案";
         DetailTitleText.Text = _selectedWork.Title;
         DetailSubtitleText.Text = _selectedWork.Subtitle ?? string.Empty;
         DetailSubtitleText.Visibility = string.IsNullOrWhiteSpace(_selectedWork.Subtitle)
@@ -424,29 +376,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         DetailAuthorText.Visibility = _selectedWork.Kind == "book" && !string.IsNullOrWhiteSpace(_selectedWork.Author)
             ? Visibility.Visible
             : Visibility.Collapsed;
-        DetailMetaText.Text = $"{_selectedWork.KindLabel} · {_selectedWork.StatusLabel} · {_selectedWork.LatestActivityLabel}";
+        DetailMetaText.Text = _selectedWork.ExperienceCount == 0
+            ? $"{_selectedWork.KindLabel} · 尚无完成记录"
+            : $"{_selectedWork.KindLabel} · {_selectedWork.ExperienceSummaryLabel} · {_selectedWork.LatestActivityLabel}";
         DetailRankText.Text = _selectedWork.AggregateRankLabel;
         DetailCountText.Text = _selectedWork.ExperienceCountLabel;
         DetailRatingCountText.Text = _selectedWork.RatingCountLabel;
-        PrimaryExperienceButton.Content = _activeExperience is not null
-            ? "完成本次"
-            : _selectedWork.Kind == "book"
-                ? (_selectedWork.ExperienceCount == 0 ? "开始阅读" : "再读一次")
-                : (_selectedWork.ExperienceCount == 0 ? "开始观看" : "再看一次");
-
-        ProgressEntries.Clear();
-        ActiveExperiencePanel.Visibility = _activeExperience is null ? Visibility.Collapsed : Visibility.Visible;
-        if (_activeExperience is not null)
-        {
-            ActiveDateText.Text = _activeExperience.DateRangeLabel;
-            ActiveSummaryText.Text = _activeExperience.ProgressSummaryLabel;
-            foreach (var entry in progressEntries)
-            {
-                ProgressEntries.Add(entry);
-            }
-        }
-        ProgressEmpty.Visibility = ProgressEntries.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        ProgressList.Visibility = ProgressEntries.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        PrimaryExperienceButton.Content = "记录一次完成";
 
         CompletedExperiences.Clear();
         var completed = allExperiences.Where(experience => experience.CompletedOn is not null).ToList();
@@ -470,7 +406,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         _selectionLoadVersion++;
         _selectedWork = null;
-        _activeExperience = null;
         DetailScroll.Visibility = Visibility.Collapsed;
         DetailEmpty.Visibility = Visibility.Visible;
         DashboardScroll.Visibility = Visibility.Collapsed;
@@ -483,7 +418,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         _showingDashboard = true;
         _selectedWorkId = null;
         _selectedWork = null;
-        _activeExperience = null;
         _isApplyingFilters = true;
         try
         {
@@ -510,9 +444,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        var dialog = _activeExperience is null
-            ? new AddExperienceWindow(_selectedWork.Id, _selectedWork.Kind) { Owner = this }
-            : new AddExperienceWindow(_selectedWork.Id, _selectedWork.Kind, _activeExperience, completing: true) { Owner = this };
+        var dialog = new AddExperienceWindow(_selectedWork.Id, _selectedWork.Kind) { Owner = this };
         if (dialog.ShowDialog() != true || dialog.Experience is null)
         {
             return;
@@ -520,55 +452,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         var selectedWorkId = _selectedWork.Id;
         await ExecuteRepositoryActionAsync(async () =>
         {
-            if (_activeExperience is null)
-            {
-                await _repository.AddExperienceAsync(dialog.Experience);
-            }
-            else
-            {
-                await _repository.UpdateExperienceAsync(dialog.Experience);
-            }
+            await _repository.AddExperienceAsync(dialog.Experience);
             await ReloadLibraryAsync(selectedWorkId);
         }, "无法保存本次记录");
-    }
-
-    private async void AddProgress_Click(object sender, RoutedEventArgs e)
-    {
-        if (_repository is null || _selectedWork is null || _activeExperience?.StartedOn is null)
-        {
-            return;
-        }
-        await ShowAddProgressAsync(_selectedWork, _activeExperience);
-    }
-
-    private async void ActiveWork_Open(object sender, System.Windows.Input.MouseButtonEventArgs e)
-    {
-        if (sender is not FrameworkElement { Tag: ActiveWorkCard card })
-        {
-            return;
-        }
-
-        await ExecuteRepositoryActionAsync(() => OpenActiveWorkAsync(card), "无法打开作品");
-    }
-
-    private async void DashboardActive_Open(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { Tag: ActiveWorkCard card })
-        {
-            return;
-        }
-
-        await ExecuteRepositoryActionAsync(() => OpenActiveWorkAsync(card), "无法打开作品");
-    }
-
-    private async Task OpenActiveWorkAsync(ActiveWorkCard card)
-    {
-
-        _showingDashboard = false;
-        _kindFilter = "all";
-        UpdateFilterButtons();
-        SearchBox.Clear();
-        await ReloadLibraryAsync(card.Work.Id);
     }
 
     private async void DashboardTimeline_Open(object sender, RoutedEventArgs e)
@@ -585,109 +471,20 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         await ExecuteRepositoryActionAsync(() => ReloadLibraryAsync(item.WorkId), "无法打开作品");
     }
 
-    private async void ActiveWork_AddProgress(object sender, RoutedEventArgs e)
+    private async void DashboardShowcase_Open(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { Tag: ActiveWorkCard card })
+        if (sender is not FrameworkElement { Tag: DashboardShowcaseItem item })
         {
             return;
         }
 
-        await ShowAddProgressAsync(card.Work, card.Experience);
+        _showingDashboard = false;
+        _kindFilter = "all";
+        UpdateFilterButtons();
+        SearchBox.Clear();
+        await ExecuteRepositoryActionAsync(() => ReloadLibraryAsync(item.WorkId), "无法打开作品");
     }
 
-    private async Task ShowAddProgressAsync(MediaWork work, MediaExperience experience)
-    {
-        if (_repository is null || experience.StartedOn is null)
-        {
-            return;
-        }
-
-        var dialog = new AddProgressWindow(
-            experience.Id,
-            work.Kind,
-            experience.StartedOn.Value,
-            totalEpisodes: work.TotalEpisodes,
-            watchedEpisodes: experience.TotalEpisodes) { Owner = this };
-        if (dialog.ShowDialog() != true || dialog.Entry is null)
-        {
-            return;
-        }
-
-        await ExecuteRepositoryActionAsync(async () =>
-        {
-            await _repository.AddProgressEntryAsync(dialog.Entry, dialog.TotalEpisodes);
-            await ReloadLibraryAsync(work.Id);
-        }, "无法保存进度");
-    }
-
-    private async void EditProgress_Click(object sender, RoutedEventArgs e)
-    {
-        if (_repository is null || _selectedWork is null || _activeExperience?.StartedOn is null || sender is not System.Windows.Controls.Button { Tag: ProgressEntry entry })
-        {
-            return;
-        }
-        var dialog = new AddProgressWindow(
-            _activeExperience.Id,
-            _selectedWork.Kind,
-            _activeExperience.StartedOn.Value,
-            entry,
-            _selectedWork.TotalEpisodes,
-            _activeExperience.TotalEpisodes) { Owner = this };
-        if (dialog.ShowDialog() != true || dialog.Entry is null)
-        {
-            return;
-        }
-        var selectedWorkId = _selectedWork.Id;
-        await ExecuteRepositoryActionAsync(async () =>
-        {
-            await _repository.UpdateProgressEntryAsync(dialog.Entry, dialog.TotalEpisodes);
-            await ReloadLibraryAsync(selectedWorkId);
-        }, "无法更新进度");
-    }
-
-    private async void DeleteProgress_Click(object sender, RoutedEventArgs e)
-    {
-        if (_repository is null || _selectedWork is null || sender is not System.Windows.Controls.Button { Tag: ProgressEntry entry })
-        {
-            return;
-        }
-        var choice = MessageBox.Show(
-            $"删除 {entry.LoggedOn:yyyy-MM-dd} 的“{entry.AmountLabel}”记录？\n\n累计进度会自动重新计算。此操作无法撤销。",
-            "删除中途记录", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (choice != MessageBoxResult.Yes)
-        {
-            return;
-        }
-        var selectedWorkId = _selectedWork.Id;
-        await ExecuteRepositoryActionAsync(async () =>
-        {
-            await _repository.DeleteProgressEntryAsync(entry.Id);
-            await ReloadLibraryAsync(selectedWorkId);
-        }, "无法删除进度");
-    }
-
-    private async void AbandonExperience_Click(object sender, RoutedEventArgs e)
-    {
-        if (_repository is null || _selectedWork is null || _activeExperience is null)
-        {
-            return;
-        }
-        var detail = ProgressEntries.Count == 0 ? "没有中途记录。" : $"其中的 {ProgressEntries.Count} 条中途记录也会一起删除。";
-        var choice = MessageBox.Show(
-            $"放弃当前这一次{(_selectedWork.Kind == "book" ? "阅读" : "观看")}？\n\n{detail}\n作品和历次完成记录会保留。此操作无法撤销。",
-            "放弃本次", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (choice != MessageBoxResult.Yes)
-        {
-            return;
-        }
-        var selectedWorkId = _selectedWork.Id;
-        var experienceId = _activeExperience.Id;
-        await ExecuteRepositoryActionAsync(async () =>
-        {
-            await _repository.DeleteExperienceAsync(experienceId, selectedWorkId);
-            await ReloadLibraryAsync(selectedWorkId);
-        }, "无法放弃本次记录");
-    }
 
     private async void EditExperience_Click(object sender, RoutedEventArgs e)
     {
@@ -695,7 +492,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             return;
         }
-        var dialog = new AddExperienceWindow(_selectedWork.Id, _selectedWork.Kind, experience, completing: true) { Owner = this };
+        var dialog = new AddExperienceWindow(_selectedWork.Id, _selectedWork.Kind, experience) { Owner = this };
         if (dialog.ShowDialog() != true || dialog.Experience is null)
         {
             return;
@@ -750,7 +547,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
         var choice = MessageBox.Show(
-            $"删除《{_selectedWork.Title}》？\n\n该作品的当前体验、历次完成和全部中途记录都会一起删除。此操作无法撤销。",
+            $"删除《{_selectedWork.Title}》？\n\n作品资料、完成记录和兼容保留的历史进度都会一起删除。此操作无法撤销。",
             "删除作品", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (choice != MessageBoxResult.Yes)
         {
