@@ -537,6 +537,7 @@
                         </Border>
                         <ListBox x:Name="HistoryList" ItemsSource="{Binding CompletedExperiences}" MaxHeight="640"
                                  Background="Transparent" BorderThickness="0" ScrollViewer.CanContentScroll="True"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                  VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
                             <ListBox.ItemContainerStyle>
                                 <Style TargetType="ListBoxItem"><Setter Property="Padding" Value="0" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /></Style>
@@ -558,7 +559,11 @@
                                                 </LinearGradientBrush>
                                             </Border.Background>
                                             <Grid TextElement.FontFamily="Segoe UI Variable Text, Microsoft YaHei UI">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="352" /><ColumnDefinition Width="*" /><ColumnDefinition Width="274" /></Grid.ColumnDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="5*" MinWidth="270" MaxWidth="352" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="4*" MinWidth="245" MaxWidth="274" />
+                                                </Grid.ColumnDefinitions>
 
                                                 <Grid VerticalAlignment="Center" Margin="0,0,18,0">
                                                     <Border CornerRadius="5" Background="#F4F1E8" BorderBrush="#C8AD67" BorderThickness="1.2" Padding="5">
@@ -566,7 +571,7 @@
                                                             <Grid>
                                                                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="10" /><RowDefinition Height="1" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                                                                 <Grid>
-                                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                                                     <StackPanel>
                                                                         <TextBlock Text="EX LIBRIS" FontFamily="Georgia" FontSize="11" FontStyle="Italic" Foreground="{StaticResource AccentStrongBrush}" />
                                                                         <TextBlock Text="私人藏书票" Margin="0,2,0,0" FontSize="9.5" Foreground="{StaticResource MutedBrush}" />
@@ -592,15 +597,6 @@
                                                                             </ControlTemplate>
                                                                         </Button.Template>
                                                                     </Button>
-                                                                    <ui:Button x:Name="ArchiveActions" Grid.Column="3" Tag="{Binding Experience}" Icon="{ui:SymbolIcon MoreHorizontal24}" ToolTip="其他操作"
-                                                                               Width="27" Height="27" Margin="5,0,0,0" Padding="0" VerticalAlignment="Center"
-                                                                               Appearance="Transparent" Foreground="#907B4D" Click="ArchiveMore_Click">
-                                                                        <ui:Button.ContextMenu>
-                                                                            <ContextMenu Placement="Bottom">
-                                                                                <MenuItem Header="删除这次记录" Click="DeleteExperience_Click" Tag="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
-                                                                            </ContextMenu>
-                                                                        </ui:Button.ContextMenu>
-                                                                    </ui:Button>
                                                                 </Grid>
                                                                 <Border Grid.Row="2" Background="#CCB676" />
                                                                 <Grid Grid.Row="3" Margin="0,11,0,0">
@@ -636,7 +632,7 @@
                                                                Foreground="{StaticResource TextBrush}" VerticalAlignment="Center">
                                                         <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding HasNotes}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
                                                     </TextBlock>
-                                                    <Grid Width="150" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Grid MaxWidth="150" Margin="8,0" HorizontalAlignment="Stretch" VerticalAlignment="Center">
                                                         <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding HasNotes}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Grid.Style>
                                                         <TextBlock Text="Q" FontFamily="Georgia" FontSize="52" FontStyle="Italic" Foreground="{StaticResource AccentBrush}" Opacity="0.08" HorizontalAlignment="Center" Margin="0,-30,0,0" />
                                                         <Grid VerticalAlignment="Center">
@@ -649,7 +645,7 @@
                                                     </Grid>
                                                 </Grid>
 
-                                                <Grid x:Name="DimensionScores" Grid.Column="2" Width="274" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                <Grid x:Name="DimensionScores" Grid.Column="2" HorizontalAlignment="Stretch" VerticalAlignment="Center"
                                                       TextElement.FontFamily="Monotype Corsiva, Gabriola, Palatino Linotype" TextElement.FontWeight="Normal">
                                                     <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding HasCompleteRating}" Value="False"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Grid.Style>
                                                     <Grid.Resources>
@@ -701,9 +697,6 @@
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding HasCompleteRating}" Value="False">
                                             <Setter TargetName="TimelineNode" Property="Stroke" Value="#8E9993" />
-                                        </DataTrigger>
-                                        <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType={x:Type ContentPresenter}}, Path=IsMouseOver}" Value="True">
-                                            <Setter TargetName="ArchiveActions" Property="Opacity" Value="1" />
                                         </DataTrigger>
                                     </DataTemplate.Triggers>
                                 </DataTemplate>

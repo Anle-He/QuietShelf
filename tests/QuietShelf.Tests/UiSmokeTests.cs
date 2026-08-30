@@ -45,10 +45,20 @@ public sealed class UiSmokeTests
                 Assert.NotNull(completedOn.SelectedDate);
                 var dateError = Assert.IsType<TextBlock>(addExperience.FindName("DateError"));
                 var saveButton = Assert.IsAssignableFrom<Button>(addExperience.FindName("SaveButton"));
+                var deleteButton = Assert.IsAssignableFrom<Button>(addExperience.FindName("DeleteButton"));
+                Assert.Equal(Visibility.Collapsed, deleteButton.Visibility);
                 completedOn.SelectedDate = null;
                 saveButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Assert.Equal(Visibility.Visible, dateError.Visibility);
                 Assert.Null(addExperience.Experience);
+
+                var editExperience = new AddExperienceWindow("ui-test", "book", new MediaExperience
+                {
+                    WorkId = "ui-test",
+                    CompletedOn = new DateOnly(2026, 8, 29)
+                });
+                Assert.Equal(Visibility.Visible, Assert.IsAssignableFrom<Button>(editExperience.FindName("DeleteButton")).Visibility);
+                editExperience.Close();
 
                 var covers = new ManageCoversWindow(context.Repository, new QuietShelf.Models.MediaWork
                 {
@@ -177,6 +187,13 @@ public sealed class UiSmokeTests
         Assert.Equal(Visibility.Collapsed, IncompleteMessage().Visibility);
         Assert.Equal(["Allure", "3 / 3", "Immersion", "5 / 5", "Rationality", "4 / 5", "Illumination", "4 / 5"], Values());
         SaveSnapshot(presenter, "experience-ratings.png");
+
+        presenter.Width = 650;
+        presenter.Measure(new Size(presenter.Width, double.PositiveInfinity));
+        presenter.Arrange(new Rect(presenter.DesiredSize));
+        presenter.UpdateLayout();
+        Assert.True(presenter.DesiredSize.Width <= presenter.Width + 0.5, "Archive cards should fit the available detail width.");
+        SaveSnapshot(presenter, "experience-ratings-narrow.png");
 
         Display(new MediaExperience { WorkId = "ui-rating", Allure = 3 });
         Assert.Equal(Visibility.Collapsed, Scores().Visibility);

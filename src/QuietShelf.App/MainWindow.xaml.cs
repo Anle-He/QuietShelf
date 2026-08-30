@@ -493,51 +493,29 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
         var dialog = new AddExperienceWindow(_selectedWork.Id, _selectedWork.Kind, experience) { Owner = this };
-        if (dialog.ShowDialog() != true || dialog.Experience is null)
+        if (dialog.ShowDialog() != true)
         {
             return;
         }
         var selectedWorkId = _selectedWork.Id;
+        if (dialog.DeleteRequested)
+        {
+            await ExecuteRepositoryActionAsync(async () =>
+            {
+                await _repository.DeleteExperienceAsync(experience.Id, selectedWorkId);
+                await ReloadLibraryAsync(selectedWorkId);
+            }, "无法删除本次记录");
+            return;
+        }
+        if (dialog.Experience is null)
+        {
+            return;
+        }
         await ExecuteRepositoryActionAsync(async () =>
         {
             await _repository.UpdateExperienceAsync(dialog.Experience);
             await ReloadLibraryAsync(selectedWorkId);
         }, "无法更新本次记录");
-    }
-
-    private async void DeleteExperience_Click(object sender, RoutedEventArgs e)
-    {
-        if (_repository is null || _selectedWork is null || sender is not FrameworkElement { Tag: MediaExperience experience })
-        {
-            return;
-        }
-        var progressCount = experience.ProgressEntryCount;
-        var detail = progressCount == 0 ? "这次体验没有中途记录。" : $"其中的 {progressCount} 条中途记录也会一起删除。";
-        var choice = MessageBox.Show(
-            $"删除 {experience.DateRangeLabel} 的这次{(_selectedWork.Kind == "book" ? "阅读" : "观看")}？\n\n{detail}\n完成次数和综合评分会自动重新计算。此操作无法撤销。",
-            "删除本次记录", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (choice != MessageBoxResult.Yes)
-        {
-            return;
-        }
-        var selectedWorkId = _selectedWork.Id;
-        await ExecuteRepositoryActionAsync(async () =>
-        {
-            await _repository.DeleteExperienceAsync(experience.Id, selectedWorkId);
-            await ReloadLibraryAsync(selectedWorkId);
-        }, "无法删除本次记录");
-    }
-
-    private void ArchiveMore_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not System.Windows.Controls.Button { ContextMenu: { } menu } button)
-        {
-            return;
-        }
-
-        menu.PlacementTarget = button;
-        menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
-        menu.IsOpen = true;
     }
 
     private async void DeleteWork_Click(object sender, RoutedEventArgs e)

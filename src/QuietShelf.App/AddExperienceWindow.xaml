@@ -60,7 +60,8 @@
             </StackPanel>
         </ScrollViewer>
         <Border Grid.Row="2" Style="{StaticResource DialogActionBarStyle}"><Grid>
-            <TextBlock Text="保存后会进入作品档案" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+            <ui:Button x:Name="DeleteButton" Content="删除记录" Icon="{ui:SymbolIcon Delete24}" Appearance="Secondary"
+                       Foreground="#A33A32" HorizontalAlignment="Left" Visibility="Collapsed" Click="Delete_Click" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><ui:Button Content="取消" Appearance="Secondary" Margin="0,0,10,0" Click="Cancel_Click" />
             <ui:Button x:Name="SaveButton" Content="保存记录" Icon="{ui:SymbolIcon Save24}" Appearance="Primary" Click="Save_Click" IsDefault="True" /></StackPanel>
         </Grid></Border>

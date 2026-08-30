@@ -7,11 +7,13 @@ namespace QuietShelf;
 public partial class AddExperienceWindow : Window
 {
     private readonly string _workId;
+    private readonly string _kind;
     private readonly MediaExperience? _existing;
 
     public AddExperienceWindow(string workId, string kind, MediaExperience? existing = null)
     {
         _workId = workId;
+        _kind = kind;
         _existing = existing;
         InitializeComponent();
         var editingCompleted = existing?.CompletedOn is not null;
@@ -35,9 +37,11 @@ public partial class AddExperienceWindow : Window
         SetRating(IlluminationBox, existing?.Illumination);
         CompletionPanel.Visibility = Visibility.Visible;
         SaveButton.Content = editingCompleted ? "保存修改" : "保存完成记录";
+        DeleteButton.Visibility = editingCompleted ? Visibility.Visible : Visibility.Collapsed;
     }
 
     public MediaExperience? Experience { get; private set; }
+    public bool DeleteRequested { get; private set; }
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
@@ -75,6 +79,30 @@ public partial class AddExperienceWindow : Window
             CreatedAt = _existing?.CreatedAt ?? now,
             UpdatedAt = now
         };
+        DialogResult = true;
+    }
+
+    private void Delete_Click(object sender, RoutedEventArgs e)
+    {
+        if (_existing is null)
+        {
+            return;
+        }
+
+        var progressCount = _existing.ProgressEntryCount;
+        var detail = progressCount == 0 ? string.Empty : $"\n其中的 {progressCount} 条历史记录也会一起删除。";
+        var choice = MessageBox.Show(
+            this,
+            $"删除这次{(_kind == "book" ? "阅读" : "观看")}记录？{detail}\n\n完成次数和综合评分会自动重新计算。此操作无法撤销。",
+            "删除完成记录",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (choice != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        DeleteRequested = true;
         DialogResult = true;
     }
 
