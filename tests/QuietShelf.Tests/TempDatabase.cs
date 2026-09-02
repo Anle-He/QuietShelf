@@ -25,6 +25,34 @@ internal sealed class TempDatabase : IAsyncDisposable
         return new TempDatabase(root, database);
     }
 
+    public async Task SeedHistoricalProgressAsync(string experienceId, DateOnly loggedOn)
+    {
+        await using var connection = new SqliteConnection(Database.ConnectionString);
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO progress_entries (id, experience_id, logged_on, metric, amount, notes, created_at, updated_at)
+            VALUES ($id, $experienceId, $loggedOn, 'duration', 1, NULL, $createdAt, $updatedAt);
+            """;
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        command.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        command.Parameters.AddWithValue("$experienceId", experienceId);
+        command.Parameters.AddWithValue("$loggedOn", loggedOn.ToString("yyyy-MM-dd"));
+        command.Parameters.AddWithValue("$createdAt", now);
+        command.Parameters.AddWithValue("$updatedAt", now);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    public async Task<long> CountHistoricalProgressAsync(string experienceId)
+    {
+        await using var connection = new SqliteConnection(Database.ConnectionString);
+        await connection.OpenAsync();
+        var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM progress_entries WHERE experience_id = $experienceId;";
+        command.Parameters.AddWithValue("$experienceId", experienceId);
+        return (long)(await command.ExecuteScalarAsync() ?? 0L);
+    }
+
     public ValueTask DisposeAsync()
     {
         SqliteConnection.ClearAllPools();

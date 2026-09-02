@@ -176,7 +176,6 @@ public sealed class UiSmokeTests
             WorkId = "ui-rating",
             StartedOn = new DateOnly(2026, 8, 26),
             CompletedOn = new DateOnly(2026, 8, 28),
-            ProgressDayCount = 2,
             ProgressEntryCount = 3,
             Allure = 3,
             Immersion = 5,

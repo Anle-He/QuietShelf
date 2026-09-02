@@ -10,13 +10,8 @@ public sealed partial class LibraryRepository(Database database)
     private const string ExperienceSelect = """
         SELECT e.id, e.work_id, e.started_on, e.completed_on, e.allure, e.immersion, e.rationality, e.illumination,
                e.notes, e.created_at, e.updated_at,
-               COUNT(DISTINCT p.logged_on),
-               COUNT(p.id),
-               COALESCE(SUM(CASE WHEN p.metric = 'duration' THEN p.amount ELSE 0 END), 0),
-               COALESCE(SUM(CASE WHEN p.metric = 'episodes' THEN p.amount ELSE 0 END), 0),
-               w.total_episodes
+               COUNT(p.id)
         FROM experiences e
-        JOIN works w ON w.id = e.work_id
         LEFT JOIN progress_entries p ON p.experience_id = e.id
         """;
 
@@ -92,24 +87,6 @@ public sealed partial class LibraryRepository(Database database)
         return experiences;
     }
 
-    public async Task<IReadOnlyDictionary<string, MediaExperience>> GetActiveExperiencesAsync()
-    {
-        var experiences = new Dictionary<string, MediaExperience>(StringComparer.Ordinal);
-        await using var connection = await OpenAsync();
-        var command = connection.CreateCommand();
-        command.CommandText = ExperienceSelect + "\n" + """
-            WHERE e.started_on IS NOT NULL AND e.completed_on IS NULL
-            GROUP BY e.id;
-            """;
-        await using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            var experience = ReadExperience(reader);
-            experiences[experience.WorkId] = experience;
-        }
-        return experiences;
-    }
-
     public async Task AddWorkAsync(MediaWork work)
     {
         await using var connection = await OpenAsync();
@@ -146,50 +123,6 @@ public sealed partial class LibraryRepository(Database database)
         command.Parameters.AddWithValue("$kind", work.Kind);
         command.Parameters.AddWithValue("$updatedAt", work.UpdatedAt.ToString("O"));
         await command.ExecuteNonQueryAsync();
-    }
-
-    public async Task<MediaExperience?> GetActiveExperienceAsync(string workId)
-    {
-        await using var connection = await OpenAsync();
-        var command = connection.CreateCommand();
-        command.CommandText = ExperienceSelect + "\n" + """
-            WHERE e.work_id = $workId AND e.started_on IS NOT NULL AND e.completed_on IS NULL
-            GROUP BY e.id
-            LIMIT 1;
-            """;
-        command.Parameters.AddWithValue("$workId", workId);
-        await using var reader = await command.ExecuteReaderAsync();
-        return await reader.ReadAsync() ? ReadExperience(reader) : null;
-    }
-
-    public async Task<IReadOnlyList<ProgressEntry>> GetProgressEntriesAsync(string experienceId)
-    {
-        var entries = new List<ProgressEntry>();
-        await using var connection = await OpenAsync();
-        var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT id, experience_id, logged_on, metric, amount, notes, created_at, updated_at
-            FROM progress_entries
-            WHERE experience_id = $experienceId
-            ORDER BY logged_on DESC, created_at DESC;
-            """;
-        command.Parameters.AddWithValue("$experienceId", experienceId);
-        await using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            entries.Add(new ProgressEntry
-            {
-                Id = reader.GetString(0),
-                ExperienceId = reader.GetString(1),
-                LoggedOn = DateOnly.Parse(reader.GetString(2), CultureInfo.InvariantCulture),
-                Metric = reader.GetString(3),
-                Amount = reader.GetInt32(4),
-                Notes = reader.IsDBNull(5) ? null : reader.GetString(5),
-                CreatedAt = DateTimeOffset.Parse(reader.GetString(6), CultureInfo.InvariantCulture),
-                UpdatedAt = DateTimeOffset.Parse(reader.GetString(7), CultureInfo.InvariantCulture)
-            });
-        }
-        return entries;
     }
 
     public async Task<IReadOnlyList<DashboardTimelineItem>> GetRecentTimelineAsync(int limit = 5)
@@ -339,106 +272,6 @@ public sealed partial class LibraryRepository(Database database)
         }
 
         return new DashboardShowcase { CompletedWorks = works, TopAuthors = authors };
-    }
-
-    public async Task AddProgressEntryAsync(ProgressEntry entry, int? totalEpisodes = null)
-    {
-        await using var connection = await OpenAsync();
-        await ValidateProgressEntryAsync(connection, entry, totalEpisodes);
-        await using var transaction = await connection.BeginTransactionAsync();
-        var insert = connection.CreateCommand();
-        insert.Transaction = (SqliteTransaction)transaction;
-        insert.CommandText = """
-            INSERT INTO progress_entries (id, experience_id, logged_on, metric, amount, notes, created_at, updated_at)
-            VALUES ($id, $experienceId, $loggedOn, $metric, $amount, $notes, $createdAt, $updatedAt);
-            """;
-        insert.Parameters.AddWithValue("$id", entry.Id);
-        insert.Parameters.AddWithValue("$experienceId", entry.ExperienceId);
-        insert.Parameters.AddWithValue("$loggedOn", entry.LoggedOn.ToString("yyyy-MM-dd"));
-        insert.Parameters.AddWithValue("$metric", entry.Metric);
-        insert.Parameters.AddWithValue("$amount", entry.Amount);
-        insert.Parameters.AddWithValue("$notes", (object?)entry.Notes ?? DBNull.Value);
-        insert.Parameters.AddWithValue("$createdAt", entry.CreatedAt.ToString("O"));
-        insert.Parameters.AddWithValue("$updatedAt", entry.UpdatedAt.ToString("O"));
-        await insert.ExecuteNonQueryAsync();
-
-        var update = connection.CreateCommand();
-        update.Transaction = (SqliteTransaction)transaction;
-        update.CommandText = """
-            UPDATE works
-            SET total_episodes = COALESCE($totalEpisodes, total_episodes), updated_at = $updatedAt
-            WHERE id = (SELECT work_id FROM experiences WHERE id = $experienceId);
-            """;
-        update.Parameters.AddWithValue("$totalEpisodes", totalEpisodes ?? (object)DBNull.Value);
-        update.Parameters.AddWithValue("$updatedAt", entry.UpdatedAt.ToString("O"));
-        update.Parameters.AddWithValue("$experienceId", entry.ExperienceId);
-        await update.ExecuteNonQueryAsync();
-        await transaction.CommitAsync();
-    }
-
-    public async Task UpdateProgressEntryAsync(ProgressEntry entry, int? totalEpisodes = null)
-    {
-        await using var connection = await OpenAsync();
-        await ValidateProgressEntryAsync(connection, entry, totalEpisodes);
-        await using var transaction = await connection.BeginTransactionAsync();
-        var updateEntry = connection.CreateCommand();
-        updateEntry.Transaction = (SqliteTransaction)transaction;
-        updateEntry.CommandText = """
-            UPDATE progress_entries SET logged_on=$loggedOn, metric=$metric, amount=$amount,
-                notes=$notes, updated_at=$updatedAt
-            WHERE id=$id AND experience_id=$experienceId;
-            """;
-        updateEntry.Parameters.AddWithValue("$id", entry.Id);
-        updateEntry.Parameters.AddWithValue("$experienceId", entry.ExperienceId);
-        updateEntry.Parameters.AddWithValue("$loggedOn", entry.LoggedOn.ToString("yyyy-MM-dd"));
-        updateEntry.Parameters.AddWithValue("$metric", entry.Metric);
-        updateEntry.Parameters.AddWithValue("$amount", entry.Amount);
-        updateEntry.Parameters.AddWithValue("$notes", (object?)entry.Notes ?? DBNull.Value);
-        updateEntry.Parameters.AddWithValue("$updatedAt", entry.UpdatedAt.ToString("O"));
-        if (await updateEntry.ExecuteNonQueryAsync() != 1)
-        {
-            throw new InvalidOperationException("The progress entry no longer exists for this experience.");
-        }
-        var updateWork = connection.CreateCommand();
-        updateWork.Transaction = (SqliteTransaction)transaction;
-        updateWork.CommandText = """
-            UPDATE works
-            SET total_episodes=COALESCE($totalEpisodes, total_episodes), updated_at=$updatedAt
-            WHERE id = (SELECT work_id FROM experiences WHERE id = $experienceId);
-            """;
-        updateWork.Parameters.AddWithValue("$totalEpisodes", totalEpisodes ?? (object)DBNull.Value);
-        updateWork.Parameters.AddWithValue("$updatedAt", entry.UpdatedAt.ToString("O"));
-        updateWork.Parameters.AddWithValue("$experienceId", entry.ExperienceId);
-        await updateWork.ExecuteNonQueryAsync();
-        await transaction.CommitAsync();
-    }
-
-    public async Task DeleteProgressEntryAsync(string entryId)
-    {
-        await using var connection = await OpenAsync();
-        await using var transaction = await connection.BeginTransactionAsync();
-        var findWork = connection.CreateCommand();
-        findWork.Transaction = (SqliteTransaction)transaction;
-        findWork.CommandText = """
-            SELECT experience.work_id
-            FROM progress_entries AS progress
-            JOIN experiences AS experience ON experience.id = progress.experience_id
-            WHERE progress.id = $id;
-            """;
-        findWork.Parameters.AddWithValue("$id", entryId);
-        var workId = await findWork.ExecuteScalarAsync() as string;
-        if (workId is null)
-        {
-            return;
-        }
-
-        var delete = connection.CreateCommand();
-        delete.Transaction = (SqliteTransaction)transaction;
-        delete.CommandText = "DELETE FROM progress_entries WHERE id=$id;";
-        delete.Parameters.AddWithValue("$id", entryId);
-        await delete.ExecuteNonQueryAsync();
-        await TouchWorkAsync(connection, (SqliteTransaction)transaction, workId, DateTimeOffset.Now);
-        await transaction.CommitAsync();
     }
 
     public async Task AddExperienceAsync(MediaExperience experience)
@@ -608,48 +441,6 @@ public sealed partial class LibraryRepository(Database database)
         }
     }
 
-    private static async Task ValidateProgressEntryAsync(
-        SqliteConnection connection,
-        ProgressEntry entry,
-        int? totalEpisodes)
-    {
-        var command = connection.CreateCommand();
-        command.CommandText = """
-            SELECT e.started_on, w.kind
-            FROM experiences e
-            JOIN works w ON w.id = e.work_id
-            WHERE e.id = $experienceId;
-            """;
-        command.Parameters.AddWithValue("$experienceId", entry.ExperienceId);
-        await using var reader = await command.ExecuteReaderAsync();
-        if (!await reader.ReadAsync())
-        {
-            throw new InvalidOperationException("The progress entry does not belong to an existing experience.");
-        }
-
-        if (reader.IsDBNull(0))
-        {
-            throw new InvalidOperationException("Progress requires an experience start date.");
-        }
-
-        var startedOn = DateOnly.Parse(reader.GetString(0), CultureInfo.InvariantCulture);
-        if (entry.LoggedOn < startedOn)
-        {
-            throw new InvalidOperationException("Progress date cannot be earlier than the experience start date.");
-        }
-
-        var workKind = reader.GetString(1);
-        if (string.Equals(entry.Metric, "episodes", StringComparison.Ordinal)
-            && !string.Equals(workKind, "screen", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException("Episode progress is only available for screen works.");
-        }
-        if (totalEpisodes is not null && !string.Equals(workKind, "screen", StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException("Episode totals are only available for screen works.");
-        }
-    }
-
     private async Task<SqliteConnection> OpenAsync()
     {
         var connection = new SqliteConnection(database.ConnectionString);
@@ -708,10 +499,6 @@ public sealed partial class LibraryRepository(Database database)
         Notes = reader.IsDBNull(8) ? null : reader.GetString(8),
         CreatedAt = DateTimeOffset.Parse(reader.GetString(9), CultureInfo.InvariantCulture),
         UpdatedAt = DateTimeOffset.Parse(reader.GetString(10), CultureInfo.InvariantCulture),
-        ProgressDayCount = reader.GetInt32(11),
-        ProgressEntryCount = reader.GetInt32(12),
-        TotalMinutes = reader.GetInt32(13),
-        TotalEpisodes = reader.GetInt32(14),
-        AvailableEpisodes = reader.IsDBNull(15) ? null : reader.GetInt32(15)
+        ProgressEntryCount = reader.GetInt32(11)
     };
 }

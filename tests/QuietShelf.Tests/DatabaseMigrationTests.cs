@@ -67,9 +67,11 @@ public sealed class DatabaseMigrationTests
 
             var repository = new LibraryRepository(database);
             var work = await repository.GetWorkAsync("work-active");
-            var active = await repository.GetActiveExperienceAsync("work-active");
+            var active = Assert.Single(
+                await repository.GetExperiencesAsync("work-active"),
+                experience => experience.StartedOn is not null && experience.CompletedOn is null);
             Assert.Equal("in_progress", work?.Status);
-            Assert.Equal(new DateOnly(2026, 8, 3), active?.StartedOn);
+            Assert.Equal(new DateOnly(2026, 8, 3), active.StartedOn);
         }
         finally
         {
@@ -91,8 +93,11 @@ public sealed class DatabaseMigrationTests
 
             await database.InitializeAsync();
 
-            var active = await new LibraryRepository(database).GetActiveExperienceAsync("work-active");
-            Assert.Equal(new DateOnly(2026, 8, 3), active?.StartedOn);
+            var repository = new LibraryRepository(database);
+            var active = Assert.Single(
+                await repository.GetExperiencesAsync("work-active"),
+                experience => experience.StartedOn is not null && experience.CompletedOn is null);
+            Assert.Equal(new DateOnly(2026, 8, 3), active.StartedOn);
             await using (var connection = new SqliteConnection(database.ConnectionString))
             {
                 await connection.OpenAsync();
@@ -106,7 +111,9 @@ public sealed class DatabaseMigrationTests
 
             await new Database(databasePath).InitializeAsync();
 
-            Assert.Null(await new LibraryRepository(new Database(databasePath)).GetActiveExperienceAsync("work-active"));
+            Assert.DoesNotContain(
+                await new LibraryRepository(new Database(databasePath)).GetExperiencesAsync("work-active"),
+                experience => experience.StartedOn is not null && experience.CompletedOn is null);
         }
         finally
         {

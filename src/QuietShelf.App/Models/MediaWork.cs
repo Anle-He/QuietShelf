@@ -24,13 +24,6 @@ public sealed class MediaWork
     public string ExperienceSummaryLabel => ExperienceCount == 0
         ? "尚无完成记录"
         : $"已记录 {ExperienceCount} 次";
-    public string StatusLabel => HasActiveExperience ? "进行中" : Status switch
-    {
-        "planned" => Kind == "book" ? "想读" : "想看",
-        "in_progress" => "进行中",
-        "completed" => Kind == "book" ? "已读" : "已看",
-        _ => "未设置状态"
-    };
     public string AggregateRankLabel => AggregateRank is null
         ? "暂无评分"
         : $"{AggregateRank:0.0} / {RatingScale.RankMaximum:0.0}";

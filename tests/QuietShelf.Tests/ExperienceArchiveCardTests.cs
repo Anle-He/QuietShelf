@@ -37,10 +37,7 @@ public sealed class ExperienceArchiveCardTests
             Experience = new MediaExperience
             {
                 WorkId = "work",
-                ProgressDayCount = 2,
-                ProgressEntryCount = 3,
-                TotalEpisodes = 10,
-                AvailableEpisodes = 10
+                ProgressEntryCount = 3
             }
         };
 

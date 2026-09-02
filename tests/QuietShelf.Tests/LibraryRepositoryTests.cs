@@ -82,7 +82,7 @@ public sealed class LibraryRepositoryTests
     }
 
     [Fact]
-    public async Task ProgressAndRatings_AggregateAcrossCompletedExperiences()
+    public async Task Ratings_AggregateAcrossCompletedExperiencesAndReadHistoricalEntryCount()
     {
         await using var context = await TempDatabase.CreateAsync();
         var work = new MediaWork { Title = "aggregate-test", Kind = "book" };
@@ -96,34 +96,7 @@ public sealed class LibraryRepositoryTests
         };
         await context.Repository.AddExperienceAsync(first);
 
-        var firstProgress = new ProgressEntry
-        {
-            ExperienceId = first.Id,
-            LoggedOn = new DateOnly(2026, 8, 1),
-            Metric = "duration",
-            Amount = 30,
-            Notes = "first"
-        };
-        var secondProgress = new ProgressEntry
-        {
-            ExperienceId = first.Id,
-            LoggedOn = new DateOnly(2026, 8, 2),
-            Metric = "duration",
-            Amount = 45
-        };
-        await context.Repository.AddProgressEntryAsync(firstProgress);
-        await context.Repository.AddProgressEntryAsync(secondProgress);
-        await context.Repository.UpdateProgressEntryAsync(new ProgressEntry
-        {
-            Id = firstProgress.Id,
-            ExperienceId = first.Id,
-            LoggedOn = firstProgress.LoggedOn,
-            Metric = firstProgress.Metric,
-            Amount = 35,
-            Notes = firstProgress.Notes,
-            CreatedAt = firstProgress.CreatedAt
-        });
-        await context.Repository.DeleteProgressEntryAsync(secondProgress.Id);
+        await context.SeedHistoricalProgressAsync(first.Id, new DateOnly(2026, 8, 1));
 
         await context.Repository.UpdateExperienceAsync(new MediaExperience
         {
@@ -160,46 +133,11 @@ public sealed class LibraryRepositoryTests
         Assert.Equal("completed", aggregate.Status);
         Assert.Equal(2, history.Count);
         Assert.Equal(new DateOnly(2026, 8, 5), history[0].StartedOn);
-        Assert.Equal(1, history[1].ProgressDayCount);
         Assert.Equal(1, history[1].ProgressEntryCount);
-        Assert.Equal(35, history[1].TotalMinutes);
-    }
+        Assert.Equal(1L, await context.CountHistoricalProgressAsync(first.Id));
 
-    [Fact]
-    public async Task ExperienceProgressSummary_AggregatesMetricsInOneHistoryDay()
-    {
-        await using var context = await TempDatabase.CreateAsync();
-        var work = new MediaWork { Title = "progress-summary-test", Kind = "screen" };
-        await context.Repository.AddWorkAsync(work);
-        var experience = new MediaExperience
-        {
-            WorkId = work.Id,
-            StartedOn = new DateOnly(2026, 8, 24)
-        };
-        await context.Repository.AddExperienceAsync(experience);
-        await context.Repository.AddProgressEntryAsync(new ProgressEntry
-        {
-            ExperienceId = experience.Id,
-            LoggedOn = new DateOnly(2026, 8, 24),
-            Metric = "duration",
-            Amount = 40
-        });
-        await context.Repository.AddProgressEntryAsync(new ProgressEntry
-        {
-            ExperienceId = experience.Id,
-            LoggedOn = new DateOnly(2026, 8, 24),
-            Metric = "episodes",
-            Amount = 2
-        }, totalEpisodes: 12);
-
-        var history = await context.Repository.GetExperiencesAsync(work.Id);
-
-        Assert.Single(history);
-        Assert.Equal(1, history[0].ProgressDayCount);
-        Assert.Equal(2, history[0].ProgressEntryCount);
-        Assert.Equal(40, history[0].TotalMinutes);
-        Assert.Equal(2, history[0].TotalEpisodes);
-        Assert.Equal(12, history[0].AvailableEpisodes);
+        await context.Repository.DeleteExperienceAsync(first.Id, work.Id);
+        Assert.Equal(0L, await context.CountHistoricalProgressAsync(first.Id));
     }
 
     [Fact]
@@ -213,14 +151,6 @@ public sealed class LibraryRepositoryTests
 
         var viewing = new MediaExperience { WorkId = screen.Id, StartedOn = new DateOnly(2026, 8, 20) };
         await context.Repository.AddExperienceAsync(viewing);
-        await context.Repository.AddProgressEntryAsync(new ProgressEntry
-        {
-            ExperienceId = viewing.Id,
-            LoggedOn = new DateOnly(2026, 8, 27),
-            Metric = "episodes",
-            Amount = 3,
-            Notes = "a useful note"
-        });
 
         var reading = new MediaExperience
         {
@@ -288,15 +218,6 @@ public sealed class LibraryRepositoryTests
         var completedOn = startedOn.AddDays(9);
         var experience = new MediaExperience { WorkId = work.Id, StartedOn = startedOn };
         await context.Repository.AddExperienceAsync(experience);
-        var progress = new ProgressEntry
-        {
-            ExperienceId = experience.Id, LoggedOn = startedOn, Metric = "duration", Amount = 20
-        };
-        await context.Repository.AddProgressEntryAsync(progress);
-        await context.Repository.AddProgressEntryAsync(new ProgressEntry
-        {
-            ExperienceId = experience.Id, LoggedOn = startedOn, Metric = "duration", Amount = 30
-        });
         await context.Repository.UpdateExperienceAsync(new MediaExperience
         {
             Id = experience.Id, WorkId = work.Id, StartedOn = startedOn, CompletedOn = completedOn,
@@ -311,16 +232,6 @@ public sealed class LibraryRepositoryTests
         var latest = Assert.Single(await context.Repository.GetRecentTimelineAsync(1));
         Assert.Equal("completion", latest.EventType);
         Assert.Equal(completedOn, latest.LoggedOn);
-        var editedOn = startedOn.AddDays(1);
-        await context.Repository.UpdateProgressEntryAsync(new ProgressEntry
-        {
-            Id = progress.Id, ExperienceId = experience.Id, LoggedOn = editedOn,
-            Metric = "duration", Amount = 25, CreatedAt = progress.CreatedAt
-        });
-        var timeline = await context.Repository.GetRecentTimelineAsync();
-        Assert.Equal([completedOn], timeline.Select(item => item.LoggedOn));
-        await context.Repository.DeleteProgressEntryAsync(progress.Id);
-        Assert.DoesNotContain(await context.Repository.GetRecentTimelineAsync(), item => item.Id == progress.Id);
         await context.Repository.DeleteExperienceAsync(experience.Id, work.Id);
         Assert.Empty(await context.Repository.GetRecentTimelineAsync());
         aggregate = Assert.Single(await context.Repository.GetWorksAsync());
@@ -328,104 +239,13 @@ public sealed class LibraryRepositoryTests
         Assert.Null(aggregate.LatestActivityOn);
     }
 
-    [Fact]
-    public async Task ProgressMetadata_UpdateUsesExperienceOwnership()
-    {
-        await using var context = await TempDatabase.CreateAsync();
-        var firstWork = new MediaWork { Title = "first-work", Kind = "screen" };
-        var secondWork = new MediaWork { Title = "second-work", Kind = "screen" };
-        await context.Repository.AddWorkAsync(firstWork);
-        await context.Repository.AddWorkAsync(secondWork);
-        var experience = new MediaExperience
-        {
-            WorkId = firstWork.Id,
-            StartedOn = new DateOnly(2026, 8, 22)
-        };
-        await context.Repository.AddExperienceAsync(experience);
-
-        await context.Repository.AddProgressEntryAsync(new ProgressEntry
-        {
-            ExperienceId = experience.Id,
-            LoggedOn = new DateOnly(2026, 8, 22),
-            Metric = "episodes",
-            Amount = 1
-        }, totalEpisodes: 10);
-
-        Assert.Equal(10, (await context.Repository.GetWorkAsync(firstWork.Id))?.TotalEpisodes);
-        Assert.Null((await context.Repository.GetWorkAsync(secondWork.Id))?.TotalEpisodes);
-    }
-
-    [Fact]
-    public async Task WorkLatestActivity_UsesCompletionAfterEarlierProgress()
-    {
-        await using var context = await TempDatabase.CreateAsync();
-        var work = new MediaWork { Title = "latest-activity-test", Kind = "book" };
-        await context.Repository.AddWorkAsync(work);
-        var experience = new MediaExperience
-        {
-            WorkId = work.Id,
-            StartedOn = new DateOnly(2026, 8, 1),
-            CreatedAt = new DateTimeOffset(2026, 8, 1, 9, 0, 0, TimeSpan.Zero)
-        };
-        await context.Repository.AddExperienceAsync(experience);
-        await context.Repository.AddProgressEntryAsync(new ProgressEntry
-        {
-            ExperienceId = experience.Id,
-            LoggedOn = new DateOnly(2026, 8, 2),
-            Metric = "duration",
-            Amount = 30
-        });
-        await context.Repository.UpdateExperienceAsync(new MediaExperience
-        {
-            Id = experience.Id,
-            WorkId = work.Id,
-            StartedOn = experience.StartedOn,
-            CompletedOn = new DateOnly(2026, 8, 10),
-            CreatedAt = experience.CreatedAt
-        });
-
-        var storedWork = await context.Repository.GetWorkAsync(work.Id);
-
-        Assert.Equal(new DateOnly(2026, 8, 10), storedWork?.LatestActivityOn);
-    }
-
-    [Fact]
-    public async Task EpisodeProgress_TracksAvailableAndWatchedTotals()
-    {
-        await using var context = await TempDatabase.CreateAsync();
-        var work = new MediaWork { Title = "episode-test", Kind = "screen" };
-        await context.Repository.AddWorkAsync(work);
-        var experience = new MediaExperience
-        {
-            WorkId = work.Id,
-            StartedOn = new DateOnly(2026, 8, 21)
-        };
-        await context.Repository.AddExperienceAsync(experience);
-        await context.Repository.AddProgressEntryAsync(new ProgressEntry
-        {
-            ExperienceId = experience.Id,
-            LoggedOn = new DateOnly(2026, 8, 21),
-            Metric = "episodes",
-            Amount = 2
-        }, totalEpisodes: 12);
-
-        var storedWork = await context.Repository.GetWorkAsync(work.Id);
-        var history = await context.Repository.GetExperiencesAsync(work.Id);
-        Assert.Equal(12, storedWork?.TotalEpisodes);
-        Assert.Single(history);
-        Assert.Equal(2, history[0].TotalEpisodes);
-        Assert.Equal(12, history[0].AvailableEpisodes);
-        Assert.Contains("已看 2 / 12 集", history[0].ProgressSummaryLabel, StringComparison.Ordinal);
-    }
-
     [Theory]
-    [InlineData(1, 10, 2, 10)]
-    [InlineData(1, null, 2, null)]
-    [InlineData(1, null, null, null)]
-    [InlineData(null, 10, null, 10)]
-    [InlineData(null, null, null, null)]
+    [InlineData(1, 10, 10)]
+    [InlineData(1, null, null)]
+    [InlineData(null, 10, 10)]
+    [InlineData(null, null, null)]
     public async Task WorkLatestActivity_UsesOnlyCompletionDates(
-        int? startDay, int? completionDay, int? progressDay, int? expectedDay)
+        int? startDay, int? completionDay, int? expectedDay)
     {
         await using var context = await TempDatabase.CreateAsync();
         var work = new MediaWork { Title = "backdated-activity-test", Kind = "book" };
@@ -438,17 +258,6 @@ public sealed class LibraryRepositoryTests
             CreatedAt = new DateTimeOffset(2026, 8, 28, 10, 0, 0, TimeSpan.Zero)
         };
         await context.Repository.AddExperienceAsync(experience);
-        if (progressDay is { } progress)
-        {
-            await context.Repository.AddProgressEntryAsync(new ProgressEntry
-            {
-                ExperienceId = experience.Id,
-                LoggedOn = new DateOnly(2026, 8, progress),
-                Metric = "duration",
-                Amount = 30
-            });
-        }
-
         var latest = (await context.Repository.GetWorkAsync(work.Id))?.LatestActivityOn;
         if (expectedDay is { } day)
         {
@@ -604,74 +413,6 @@ public sealed class LibraryRepositoryTests
 
         Assert.Contains("Completion date", exception.Message, StringComparison.Ordinal);
         Assert.Empty(await context.Repository.GetExperiencesAsync(work.Id));
-    }
-
-    [Fact]
-    public async Task ProgressValidation_RejectsEarlyAndBookEpisodeEntries()
-    {
-        await using var context = await TempDatabase.CreateAsync();
-        var work = new MediaWork { Title = "progress-validation-test", Kind = "book" };
-        await context.Repository.AddWorkAsync(work);
-        var experience = new MediaExperience
-        {
-            WorkId = work.Id,
-            StartedOn = new DateOnly(2026, 8, 10)
-        };
-        await context.Repository.AddExperienceAsync(experience);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            context.Repository.AddProgressEntryAsync(new ProgressEntry
-            {
-                ExperienceId = experience.Id,
-                LoggedOn = new DateOnly(2026, 8, 9),
-                Metric = "duration",
-                Amount = 10
-            }));
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            context.Repository.AddProgressEntryAsync(new ProgressEntry
-            {
-                ExperienceId = experience.Id,
-                LoggedOn = new DateOnly(2026, 8, 10),
-                Metric = "episodes",
-                Amount = 1
-            }));
-
-        Assert.Empty(await context.Repository.GetProgressEntriesAsync(experience.Id));
-    }
-
-    [Fact]
-    public async Task ActiveExperiences_LoadForAllActiveWorksInOneResult()
-    {
-        await using var context = await TempDatabase.CreateAsync();
-        var firstWork = new MediaWork { Title = "active-one", Kind = "book" };
-        var secondWork = new MediaWork { Title = "active-two", Kind = "screen" };
-        var completedWork = new MediaWork { Title = "completed", Kind = "book" };
-        await context.Repository.AddWorkAsync(firstWork);
-        await context.Repository.AddWorkAsync(secondWork);
-        await context.Repository.AddWorkAsync(completedWork);
-        await context.Repository.AddExperienceAsync(new MediaExperience
-        {
-            WorkId = firstWork.Id,
-            StartedOn = new DateOnly(2026, 8, 1)
-        });
-        await context.Repository.AddExperienceAsync(new MediaExperience
-        {
-            WorkId = secondWork.Id,
-            StartedOn = new DateOnly(2026, 8, 2)
-        });
-        await context.Repository.AddExperienceAsync(new MediaExperience
-        {
-            WorkId = completedWork.Id,
-            StartedOn = new DateOnly(2026, 8, 1),
-            CompletedOn = new DateOnly(2026, 8, 3)
-        });
-
-        var active = await context.Repository.GetActiveExperiencesAsync();
-
-        Assert.Equal(2, active.Count);
-        Assert.Contains(firstWork.Id, active.Keys);
-        Assert.Contains(secondWork.Id, active.Keys);
-        Assert.DoesNotContain(completedWork.Id, active.Keys);
     }
 
     private sealed class PausingCoverSources(string sourcePath) : IReadOnlyList<string>, IDisposable
