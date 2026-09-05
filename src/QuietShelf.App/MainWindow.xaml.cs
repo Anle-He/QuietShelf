@@ -46,7 +46,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
         catch (Exception exception)
         {
-            MessageBox.Show($"无法打开本地作品库。\n\n{exception.Message}", "QuietShelf", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"无法打开本地作品库。\n\n{exception.Message}", "一页 Yiye", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -167,81 +167,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         await ApplyFiltersAsync(reloadSelected: true);
     }
 
-    private async Task ReloadDashboardAsync()
-    {
-        if (_repository is null)
-        {
-            return;
-        }
-
-        var timelineTask = _repository.GetRecentTimelineAsync();
-        var showcaseTask = _repository.GetDashboardShowcaseAsync();
-        _dashboardTimelineItems = await timelineTask;
-        _dashboardShowcase = await showcaseTask;
-        RefreshDashboard();
-    }
-
-    private void RefreshDashboard()
-    {
-        DashboardTimelineDays.Clear();
-        foreach (var day in _dashboardTimelineItems.GroupBy(item => item.LoggedOn))
-        {
-            DashboardTimelineDays.Add(new DashboardTimelineDay { Date = day.Key, Items = day.ToList() });
-        }
-
-        DashboardWorkCountText.Text = _allWorks.Count.ToString();
-        DashboardActiveCountText.Text = _allWorks.Sum(work => work.RatedExperienceCount).ToString();
-        DashboardExperienceCountText.Text = _allWorks.Sum(work => work.ExperienceCount).ToString();
-        DashboardEmptyState.Visibility = _allWorks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        DashboardTimelineList.Visibility = _dashboardTimelineItems.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-        DashboardTimelineEmptyState.Visibility = _allWorks.Count > 0 && _dashboardTimelineItems.Count == 0
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-        RefreshDashboardShowcase();
-    }
-
-    private void RefreshDashboardShowcase()
-    {
-        static IEnumerable<DashboardShowcaseItem> Ranked(IEnumerable<DashboardShowcaseItem> works) =>
-            works.Where(work => work.AggregateRank is not null)
-                .OrderByDescending(work => work.AggregateRank)
-                .ThenByDescending(work => work.RatingCount)
-                .ThenByDescending(work => work.LatestCompletedOn)
-                .Take(3);
-
-        DashboardTopBooks.Clear();
-        foreach (var work in Ranked(_dashboardShowcase.CompletedWorks.Where(work => work.Kind == "book")))
-        {
-            DashboardTopBooks.Add(work);
-        }
-        DashboardTopScreens.Clear();
-        foreach (var work in Ranked(_dashboardShowcase.CompletedWorks.Where(work => work.Kind == "screen")))
-        {
-            DashboardTopScreens.Add(work);
-        }
-        DashboardRecentWorks.Clear();
-        foreach (var work in _dashboardShowcase.CompletedWorks.OrderByDescending(work => work.LatestCompletedOn).Take(3))
-        {
-            DashboardRecentWorks.Add(work);
-        }
-        DashboardTopAuthors.Clear();
-        foreach (var author in _dashboardShowcase.TopAuthors)
-        {
-            DashboardTopAuthors.Add(author);
-        }
-
-        var year = DateTime.Today.Year;
-        var firstBook = _dashboardShowcase.CompletedWorks
-            .Where(work => work.Kind == "book" && work.FirstCompletedOn.Year == year)
-            .OrderBy(work => work.FirstCompletedOn)
-            .ThenBy(work => work.Title)
-            .FirstOrDefault();
-        DashboardFirstBookCard.DataContext = firstBook;
-        DashboardFirstBookCard.Visibility = firstBook is null ? Visibility.Collapsed : Visibility.Visible;
-        DashboardFirstBookEmpty.Visibility = firstBook is null ? Visibility.Visible : Visibility.Collapsed;
-        DashboardShowcasePanel.Visibility = _allWorks.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-    }
-
     private async Task ApplyFiltersAsync(bool reloadSelected = false)
     {
         var query = SearchBox?.Text.Trim() ?? string.Empty;
@@ -252,7 +177,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
               || (work.Subtitle?.Contains(query, StringComparison.CurrentCultureIgnoreCase) ?? false)
               || (work.Author?.Contains(query, StringComparison.CurrentCultureIgnoreCase) ?? false))).ToList();
 
-        var regularMatches = matches;
+
         var selected = _showingDashboard ? null : matches.FirstOrDefault(work => work.Id == _selectedWorkId);
         if (!_showingDashboard && selected is null && matches.Count > 0 && string.IsNullOrWhiteSpace(query))
         {
@@ -263,7 +188,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         try
         {
             VisibleWorks.Clear();
-            foreach (var work in regularMatches)
+            foreach (var work in matches)
             {
                 VisibleWorks.Add(work);
             }
@@ -280,9 +205,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
         LibraryCountText.Text = $"{_allWorks.Count} 部作品";
-        RegularWorksHeader.Visibility = regularMatches.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        RegularWorksHeader.Visibility = matches.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         EmptyState.Visibility = matches.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        WorkList.Visibility = regularMatches.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        WorkList.Visibility = matches.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         EmptyTitle.Text = _allWorks.Count == 0 ? "这里还没有作品" : "没有找到相符的作品";
         EmptyDescription.Text = _allWorks.Count == 0
             ? "先加入一本书，或一部想留下来的影视。"
@@ -456,35 +381,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             await ReloadLibraryAsync(selectedWorkId);
         }, "无法保存本次记录");
     }
-
-    private async void DashboardTimeline_Open(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { Tag: DashboardTimelineItem item })
-        {
-            return;
-        }
-
-        _showingDashboard = false;
-        _kindFilter = "all";
-        UpdateFilterButtons();
-        SearchBox.Clear();
-        await ExecuteRepositoryActionAsync(() => ReloadLibraryAsync(item.WorkId), "无法打开作品");
-    }
-
-    private async void DashboardShowcase_Open(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { Tag: DashboardShowcaseItem item })
-        {
-            return;
-        }
-
-        _showingDashboard = false;
-        _kindFilter = "all";
-        UpdateFilterButtons();
-        SearchBox.Clear();
-        await ExecuteRepositoryActionAsync(() => ReloadLibraryAsync(item.WorkId), "无法打开作品");
-    }
-
 
     private async void EditExperience_Click(object sender, RoutedEventArgs e)
     {

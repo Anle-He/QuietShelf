@@ -150,15 +150,7 @@ public sealed partial class LibraryRepository(Database database)
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            string? primaryCoverPath = null;
-            if (!reader.IsDBNull(10))
-            {
-                var candidate = database.GetCoverFilePath(reader.GetString(1), reader.GetString(10));
-                if (File.Exists(candidate))
-                {
-                    primaryCoverPath = candidate;
-                }
-            }
+            var primaryCoverPath = ReadCoverPath(reader, 1, 10);
 
             items.Add(new DashboardTimelineItem
             {
@@ -205,15 +197,7 @@ public sealed partial class LibraryRepository(Database database)
         {
             while (await reader.ReadAsync())
             {
-                string? primaryCoverPath = null;
-                if (!reader.IsDBNull(9))
-                {
-                    var candidate = database.GetCoverFilePath(reader.GetString(0), reader.GetString(9));
-                    if (File.Exists(candidate))
-                    {
-                        primaryCoverPath = candidate;
-                    }
-                }
+                var primaryCoverPath = ReadCoverPath(reader, 0, 9);
                 works.Add(new DashboardShowcaseItem
                 {
                     WorkId = reader.GetString(0),
@@ -454,18 +438,16 @@ public sealed partial class LibraryRepository(Database database)
         return connection;
     }
 
+    private string? ReadCoverPath(SqliteDataReader reader, int workIdColumn, int fileNameColumn)
+    {
+        if (reader.IsDBNull(fileNameColumn)) return null;
+        var path = database.GetCoverFilePath(reader.GetString(workIdColumn), reader.GetString(fileNameColumn));
+        return File.Exists(path) ? path : null;
+    }
     private MediaWork ReadWork(SqliteDataReader reader)
     {
         double? aggregate = reader.IsDBNull(11) ? null : reader.GetDouble(11);
-        string? primaryCoverPath = null;
-        if (!reader.IsDBNull(13))
-        {
-            var candidate = database.GetCoverFilePath(reader.GetString(0), reader.GetString(13));
-            if (File.Exists(candidate))
-            {
-                primaryCoverPath = candidate;
-            }
-        }
+        var primaryCoverPath = ReadCoverPath(reader, 0, 13);
         return new MediaWork
         {
             Id = reader.GetString(0),

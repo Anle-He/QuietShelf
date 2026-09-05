@@ -3,7 +3,7 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:models="clr-namespace:QuietShelf.Models"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                 Title="QuietShelf · 书影音" Width="1280" Height="800"
+                 Title="一页 Yiye · 书影音" Width="1280" Height="800"
                  MinWidth="980" MinHeight="640" WindowStartupLocation="CenterScreen"
                  ExtendsContentIntoTitleBar="True" WindowBackdropType="Mica"
                  WindowCornerPreference="Round" Icon="Assets/app-icon.ico"
@@ -21,12 +21,17 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
         </Style>
+        <Style x:Key="ShowcaseHeading" TargetType="TextBlock">
+            <Setter Property="Margin" Value="10,0,0,0" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
         <Style x:Key="WidgetShell" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource SurfaceSecondaryBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="24" />
-            <Setter Property="Padding" Value="10" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="Padding" Value="0" />
         </Style>
         <Style x:Key="MetricCard" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource SurfaceRaisedBrush}" />
@@ -114,13 +119,13 @@
                 </DataTemplate.Triggers>
         </DataTemplate>
         <DataTemplate x:Key="ShowcaseRankItemTemplate">
-            <Button Tag="{Binding}" Click="DashboardShowcase_Open" Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,0,8" Cursor="Hand" HorizontalContentAlignment="Stretch">
+            <Button Tag="{Binding}" Click="DashboardWork_Open" Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,0,8" Cursor="Hand" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Surface" Padding="9" CornerRadius="12" Background="{StaticResource SurfaceRaisedBrush}" BorderBrush="#DCE4DE" BorderThickness="1">
+                        <Border x:Name="Surface" Padding="0,10" CornerRadius="0" Background="Transparent" BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,0,0,1">
                             <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="42"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <Border Width="34" Height="48" CornerRadius="5" Background="{StaticResource AccentSoftBrush}" ClipToBounds="True">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="52"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Border Width="44" Height="64" CornerRadius="5" Background="{StaticResource AccentSoftBrush}" ClipToBounds="True">
                                     <Grid><TextBlock Text="{Binding KindGlyph}" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     <Image Source="{Binding PrimaryCoverPath, Converter={StaticResource CoverImageConverter}, ConverterParameter=80}" Stretch="UniformToFill"/></Grid>
                                 </Border>
@@ -140,7 +145,7 @@
             </Button>
         </DataTemplate>
         <DataTemplate x:Key="RecentShowcaseItemTemplate">
-            <Button Tag="{Binding}" Click="DashboardShowcase_Open" Width="116" Margin="0,0,10,0" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand">
+            <Button Tag="{Binding}" Click="DashboardWork_Open" Width="116" Margin="0,0,10,14" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand">
                 <Button.Template><ControlTemplate TargetType="Button"><StackPanel>
                     <Border x:Name="CoverSurface" Width="92" Height="132" CornerRadius="9" Background="{StaticResource AccentSoftBrush}" BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" ClipToBounds="True">
                         <Grid><TextBlock Text="{Binding KindGlyph}" FontSize="20" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/><Image Source="{Binding PrimaryCoverPath, Converter={StaticResource CoverImageConverter}, ConverterParameter=184}" Stretch="UniformToFill"/></Grid>
@@ -154,7 +159,7 @@
 
     <Grid>
         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-        <ui:TitleBar Grid.Row="0" Title="QuietShelf · 书影音" Icon="Assets/app-icon.ico" />
+        <ui:TitleBar Grid.Row="0" Title="一页 Yiye · 书影音" Icon="Assets/app-icon.ico" />
 
         <Grid Grid.Row="1" Background="{StaticResource PageBrush}">
             <Grid.ColumnDefinitions><ColumnDefinition Width="324" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
@@ -171,10 +176,10 @@
                         <StackPanel>
                             <StackPanel Orientation="Horizontal">
                                 <Border Width="30" Height="30" CornerRadius="10" Background="{StaticResource AccentStrongBrush}">
-                                    <TextBlock Text="Q" FontFamily="Georgia" FontSize="16" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <TextBlock Text="Y" FontFamily="Georgia" FontSize="16" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <StackPanel Margin="10,-1,0,0">
-                                    <TextBlock Text="QuietShelf" FontFamily="Georgia" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="一页 Yiye" FontFamily="Georgia" FontSize="17" FontWeight="SemiBold" />
                                     <TextBlock x:Name="LibraryCountText" Margin="0,2,0,0" FontSize="10.5" Foreground="{StaticResource MutedBrush}" Text="0 部作品" />
                                 </StackPanel>
                             </StackPanel>
@@ -268,6 +273,7 @@
             <Grid Grid.Column="1" Margin="0,10,10,10" Background="{StaticResource DetailPaneBrush}">
                 <ScrollViewer x:Name="DashboardScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="32,24,32,38">
+                        <Grid x:Name="DashboardCollectionHeader" Margin="0,0,0,4" Visibility="Collapsed"><TextBlock Text="我的收藏" FontSize="26" FontWeight="SemiBold"/><ui:Button Content="收录作品" Icon="{ui:SymbolIcon Add24}" Appearance="Primary" HorizontalAlignment="Right" Padding="14,7" Click="AddWork_Click"/></Grid>
                         <Border x:Name="DashboardHero" Height="302" Background="{StaticResource SurfaceBrush}"
                                 BorderBrush="#D8E0D9" BorderThickness="1" CornerRadius="26" ClipToBounds="True"
                                 Effect="{StaticResource HeroShadow}">
@@ -315,55 +321,52 @@
                         </Grid>
 
                         <StackPanel x:Name="DashboardShowcasePanel" Margin="0,24,0,0">
-                            <Grid Margin="2,0,2,12">
-                                <StackPanel><TextBlock Text="CURATED / 收藏回顾" Style="{StaticResource SectionEyebrow}"/><TextBlock Text="从完成记录里重新发现" Margin="0,5,0,0" Style="{StaticResource SectionTitle}"/></StackPanel>
-                            </Grid>
-
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                 <Border Style="{StaticResource WidgetShell}"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="16">
                                     <StackPanel>
-                                        <Grid Margin="0,0,0,12"><StackPanel Orientation="Horizontal"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource AccentSoftBrush}"><ui:SymbolIcon Symbol="Book24" FontSize="16" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="书籍评分榜" Margin="10,0,0,0" FontWeight="SemiBold" VerticalAlignment="Center"/></StackPanel></Grid>
+                                        <Grid Margin="0,0,0,12"><StackPanel Orientation="Horizontal"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource AccentSoftBrush}"><ui:SymbolIcon Symbol="Book24" FontSize="16" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="书籍评分榜" Style="{StaticResource ShowcaseHeading}"/></StackPanel></Grid>
                                         <ItemsControl ItemsSource="{Binding DashboardTopBooks}" ItemTemplate="{StaticResource ShowcaseRankItemTemplate}"/>
                                         <TextBlock Text="还没有完整评分的书籍" Margin="4,10" Foreground="{StaticResource MutedBrush}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding DashboardTopBooks.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
                                     </StackPanel>
                                 </Border></Border>
                                 <Border Grid.Column="2" Style="{StaticResource WidgetShell}"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="16">
                                     <StackPanel>
-                                        <Grid Margin="0,0,0,12"><StackPanel Orientation="Horizontal"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource WarmSoftBrush}"><ui:SymbolIcon Symbol="MoviesAndTv24" FontSize="16" Foreground="{StaticResource WarmBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="影视评分榜" Margin="10,0,0,0" FontWeight="SemiBold" VerticalAlignment="Center"/></StackPanel></Grid>
+                                        <Grid Margin="0,0,0,12"><StackPanel Orientation="Horizontal"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource WarmSoftBrush}"><ui:SymbolIcon Symbol="MoviesAndTv24" FontSize="16" Foreground="{StaticResource WarmBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="影视评分榜" Style="{StaticResource ShowcaseHeading}"/></StackPanel></Grid>
                                         <ItemsControl ItemsSource="{Binding DashboardTopScreens}" ItemTemplate="{StaticResource ShowcaseRankItemTemplate}"/>
                                         <TextBlock Text="还没有完整评分的影视" Margin="4,10" Foreground="{StaticResource MutedBrush}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding DashboardTopScreens.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
                                     </StackPanel>
                                 </Border></Border>
                             </Grid>
 
-                            <Grid Margin="0,14,0,0">
+                            <Grid x:Name="DashboardHighlights" Margin="0,14,0,0" SizeChanged="DashboardHighlights_SizeChanged">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="0.9*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="1.4*"/></Grid.ColumnDefinitions>
-                                <Border Style="{StaticResource WidgetShell}"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="17">
+                                <Border x:Name="DashboardFirstBookSection" Style="{StaticResource WidgetShell}" VerticalAlignment="Top"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="17">
                                     <Grid>
                                         <StackPanel>
-                                            <StackPanel Orientation="Horizontal"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource AccentSoftBrush}"><ui:SymbolIcon Symbol="CalendarLtr24" FontSize="16" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel Margin="10,-1,0,0"><TextBlock Text="今年的第一本书" FontWeight="SemiBold"/><TextBlock Text="年度阅读从这里开始" Margin="0,3,0,0" FontSize="10.5" Foreground="{StaticResource MutedBrush}"/></StackPanel></StackPanel>
-                                            <Button x:Name="DashboardFirstBookCard" Tag="{Binding}" Click="DashboardShowcase_Open" Margin="0,17,0,0" Padding="0" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch" Cursor="Hand">
+                                            <StackPanel Orientation="Horizontal"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource AccentSoftBrush}"><ui:SymbolIcon Symbol="CalendarLtr24" FontSize="16" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="今年的第一本书" Style="{StaticResource ShowcaseHeading}"/></StackPanel>
+                                            <Button x:Name="DashboardFirstBookCard" HorizontalAlignment="Stretch" Tag="{Binding}" Click="DashboardWork_Open" Margin="0,17,0,0" Padding="0" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch" Cursor="Hand">
                                                 <Button.Template><ControlTemplate TargetType="Button"><Border x:Name="Surface" Padding="14" CornerRadius="14" Background="{StaticResource AccentSoftBrush}"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="48" Height="68" CornerRadius="6" Background="{StaticResource SurfaceBrush}" ClipToBounds="True"><Grid><ui:SymbolIcon Symbol="Book24" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/><Image Source="{Binding PrimaryCoverPath, Converter={StaticResource CoverImageConverter}, ConverterParameter=110}" Stretch="UniformToFill"/></Grid></Border><StackPanel Grid.Column="1" Margin="11,0,0,0" VerticalAlignment="Center"><TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Author}" Margin="0,4,0,0" FontSize="11" Foreground="{StaticResource MutedStrongBrush}" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding FirstDateLabel, StringFormat=完成于 {0}}" Margin="0,7,0,0" FontSize="10.5" Foreground="{StaticResource AccentBrush}"/></StackPanel></Grid></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="#D2E7DB"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Button.Template>
                                             </Button>
                                             <TextBlock x:Name="DashboardFirstBookEmpty" Text="今年还没有完成书籍记录。" Margin="2,20,0,8" Foreground="{StaticResource MutedBrush}"/>
                                         </StackPanel>
                                     </Grid>
                                 </Border></Border>
-                                <Border Grid.Column="2" Style="{StaticResource WidgetShell}"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="17">
+                                <Border x:Name="DashboardRecentSection" Grid.Column="2" Style="{StaticResource WidgetShell}"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="17">
                                     <StackPanel>
-                                        <StackPanel Orientation="Horizontal"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource WarmSoftBrush}"><ui:SymbolIcon Symbol="History24" FontSize="16" Foreground="{StaticResource WarmBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><StackPanel Margin="10,-1,0,0"><TextBlock Text="最近完成" FontWeight="SemiBold"/><TextBlock Text="最近归档的三部作品" Margin="0,3,0,0" FontSize="10.5" Foreground="{StaticResource MutedBrush}"/></StackPanel></StackPanel>
-                                        <ItemsControl ItemsSource="{Binding DashboardRecentWorks}" ItemTemplate="{StaticResource RecentShowcaseItemTemplate}" Margin="0,17,0,0"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl>
+                                        <StackPanel Orientation="Horizontal"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource WarmSoftBrush}"><ui:SymbolIcon Symbol="History24" FontSize="16" Foreground="{StaticResource WarmBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="最近完成" Style="{StaticResource ShowcaseHeading}"/></StackPanel>
+                                        <ItemsControl ItemsSource="{Binding DashboardRecentWorks}" ItemTemplate="{StaticResource RecentShowcaseItemTemplate}" Margin="0,17,0,0"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl>
                                         <TextBlock Text="完成记录会在这里形成封面陈列。" Margin="2,20,0,8" Foreground="{StaticResource MutedBrush}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding DashboardRecentWorks.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
                                     </StackPanel>
                                 </Border></Border>
                             </Grid>
 
                             <Border Margin="0,14,0,0" Style="{StaticResource WidgetShell}"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="17">
-                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="184"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource AccentSoftBrush}"><ui:SymbolIcon Symbol="PersonStar24" FontSize="16" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="作者评分榜" Margin="10,0,0,0" FontWeight="SemiBold" VerticalAlignment="Center"/></StackPanel>
-                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding DashboardTopAuthors}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Width="190" Margin="0,0,10,0" Padding="13" CornerRadius="13" Background="{StaticResource SurfaceSecondaryBrush}"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding PositionLabel}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource AccentLineBrush}" VerticalAlignment="Center"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding Author}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding EvidenceLabel}" Margin="0,4,0,0" FontSize="9.5" Foreground="{StaticResource MutedBrush}"/></StackPanel><TextBlock Grid.Column="2" Text="{Binding WeightedRankLabel}" Margin="8,0,0,0" FontSize="19" FontWeight="SemiBold" Foreground="{StaticResource ScoreBrush}" VerticalAlignment="Center"/></Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-                                    <TextBlock Grid.Column="1" Text="完整书评积累后会形成作者榜。" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding DashboardTopAuthors.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                                <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource AccentSoftBrush}"><ui:SymbolIcon Symbol="PersonStar24" FontSize="16" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="作者评分榜" Style="{StaticResource ShowcaseHeading}"/></StackPanel>
+                                    <ItemsControl Grid.Row="1" Margin="0,14,0,0" ItemsSource="{Binding DashboardTopAuthors}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Width="190" Margin="0,0,10,10" Padding="13" CornerRadius="13" Background="{StaticResource SurfaceSecondaryBrush}"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding PositionLabel}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource AccentLineBrush}" VerticalAlignment="Center"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding Author}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding EvidenceLabel}" Margin="0,4,0,0" FontSize="9.5" Foreground="{StaticResource MutedBrush}"/></StackPanel><TextBlock Grid.Column="2" Text="{Binding WeightedRankLabel}" Margin="8,0,0,0" FontSize="19" FontWeight="SemiBold" Foreground="{StaticResource ScoreBrush}" VerticalAlignment="Center"/></Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                    <TextBlock Grid.Row="1" Margin="2,14,0,0" Text="暂无作者评分" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding DashboardTopAuthors.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
                                 </Grid>
                             </Border></Border>
                         </StackPanel>
@@ -372,8 +375,7 @@
                         <StackPanel>
                         <Grid Margin="0,0,0,15">
                             <StackPanel>
-                                <TextBlock Text="轨迹" Style="{StaticResource SectionEyebrow}" />
-                                <TextBlock Text="最近留下的痕迹" Margin="0,5,0,0" Style="{StaticResource SectionTitle}" />
+                                <TextBlock Text="最近记录" Style="{StaticResource SectionTitle}" />
                             </StackPanel>
                             <TextBlock Text="按记录日期" HorizontalAlignment="Right" VerticalAlignment="Bottom" Foreground="{StaticResource MutedBrush}" FontSize="11" />
                         </Grid>
@@ -411,7 +413,7 @@
                                             <ItemsControl ItemsSource="{Binding Items}">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Button x:Name="TimelineEvent" Tag="{Binding}" Click="DashboardTimeline_Open"
+                                                        <Button x:Name="TimelineEvent" Tag="{Binding}" Click="DashboardWork_Open"
                                                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Cursor="Hand"
                                                                 Background="Transparent" BorderThickness="0" Padding="0"
                                                                 AutomationProperties.Name="{Binding Title}">
@@ -616,7 +618,7 @@
                                                                         </StackPanel>
                                                                     </Grid>
                                                                 </Grid>
-                                                                <TextBlock Grid.Row="4" Text="QUIETSHELF · PRIVATE ARCHIVE" Margin="0,10,0,0" FontFamily="Georgia" FontSize="7.5" Foreground="#9B8B62" HorizontalAlignment="Center" />
+                                                                <TextBlock Grid.Row="4" Text="YIYE · PRIVATE ARCHIVE" Margin="0,10,0,0" FontFamily="Georgia" FontSize="7.5" Foreground="#9B8B62" HorizontalAlignment="Center" />
                                                             </Grid>
                                                         </Border>
                                                     </Border>
@@ -633,7 +635,7 @@
                                                     </TextBlock>
                                                     <Grid MaxWidth="150" Margin="8,0" HorizontalAlignment="Stretch" VerticalAlignment="Center">
                                                         <Grid.Style><Style TargetType="Grid"><Setter Property="Visibility" Value="Visible" /><Style.Triggers><DataTrigger Binding="{Binding HasNotes}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></Grid.Style>
-                                                        <TextBlock Text="Q" FontFamily="Georgia" FontSize="52" FontStyle="Italic" Foreground="{StaticResource AccentBrush}" Opacity="0.08" HorizontalAlignment="Center" Margin="0,-30,0,0" />
+                                                        <TextBlock Text="Y" FontFamily="Georgia" FontSize="52" FontStyle="Italic" Foreground="{StaticResource AccentBrush}" Opacity="0.08" HorizontalAlignment="Center" Margin="0,-30,0,0" />
                                                         <Grid VerticalAlignment="Center">
                                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="18" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                                             <Border Height="1" Background="#D6C58F" VerticalAlignment="Center" />

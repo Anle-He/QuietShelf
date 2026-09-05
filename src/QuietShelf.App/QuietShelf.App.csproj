@@ -8,7 +8,7 @@
     <UseWPF>true</UseWPF>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\app-icon.ico</ApplicationIcon>
-    <Product>QuietShelf</Product>
+    <Product>一页 Yiye</Product>
     <Description>A local-first Windows journal for books and films.</Description>
     <Authors>QuietShelf contributors</Authors>
     <RepositoryUrl>https://github.com/Anle-He/QuietShelf</RepositoryUrl>

@@ -124,7 +124,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "Installer compilation failed with exit code $LASTEXITCODE."
 }
 
-$installerPath = Join-Path $repositoryRoot "artifacts\installer\QuietShelf-Setup-$Version.exe"
+$installerPath = Join-Path $repositoryRoot "artifacts\installer\Yiye-Setup-$Version.exe"
 if (-not (Test-Path -LiteralPath $installerPath)) {
     throw "Installer output was not created."
 }

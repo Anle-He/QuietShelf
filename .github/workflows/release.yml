@@ -77,7 +77,7 @@ jobs:
           $releaseDirectory = Join-Path $PWD 'artifacts\release'
           New-Item -ItemType Directory -Path $releaseDirectory -Force | Out-Null
           Compress-Archive -Path '.\artifacts\win-x64\*' -DestinationPath (Join-Path $releaseDirectory "QuietShelf-$version-win-x64.zip")
-          Copy-Item -LiteralPath ".\artifacts\installer\QuietShelf-Setup-$version.exe" -Destination $releaseDirectory
+          Copy-Item -LiteralPath ".\artifacts\installer\Yiye-Setup-$version.exe" -Destination $releaseDirectory
 
       - name: Upload release bundle
         uses: actions/upload-artifact@v4

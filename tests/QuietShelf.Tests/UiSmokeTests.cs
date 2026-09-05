@@ -34,6 +34,7 @@ public sealed class UiSmokeTests
                 Assert.IsType<Border>(mainWindow.FindName("DetailHeroShell"));
                 AssertExperienceRatingTemplate(mainWindow);
                 AssertTimelineTemplate(mainWindow);
+                AssertDashboardLayout(mainWindow);
                 var addWork = new AddWorkWindow();
                 Assert.IsType<Border>(addWork.FindName("WorkFormSection"));
                 var addExperience = new AddExperienceWindow("ui-test", "book");
@@ -93,6 +94,55 @@ public sealed class UiSmokeTests
         if (failure is not null)
         {
             ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+    }
+
+    private static void AssertDashboardLayout(MainWindow window)
+    {
+        for (var index = 1; index <= 3; index++)
+        {
+            var work = new DashboardShowcaseItem
+            {
+                WorkId = index.ToString(), Title = $"收藏作品 {index}", Author = "示例作者",
+                AggregateRank = 3.5, RatingCount = 2, CompletionCount = 2,
+                FirstCompletedOn = new DateOnly(2026, 1, index), LatestCompletedOn = new DateOnly(2026, 8, index)
+            };
+            window.DashboardTopBooks.Add(work);
+            window.DashboardTopScreens.Add(work);
+            window.DashboardRecentWorks.Add(work);
+            window.DashboardTopAuthors.Add(new DashboardAuthorRank
+            {
+                Position = index, Author = $"作者 {index}", WorkCount = 2, RatingCount = 3, WeightedRank = 3.5
+            });
+        }
+        var panel = (StackPanel)window.FindName("DashboardShowcasePanel");
+        ((Button)window.FindName("DashboardFirstBookCard")).DataContext = window.DashboardTopBooks[0];
+        ((TextBlock)window.FindName("DashboardFirstBookEmpty")).Visibility = Visibility.Collapsed;
+        foreach (var width in new[] { 850d, 600d })
+        {
+            panel.Measure(new Size(width, double.PositiveInfinity));
+            panel.Arrange(new Rect(0, 0, width, panel.DesiredSize.Height));
+            panel.UpdateLayout();
+            panel.Measure(new Size(width, double.PositiveInfinity));
+            panel.Arrange(new Rect(0, 0, width, panel.DesiredSize.Height));
+            panel.UpdateLayout();
+            foreach (var wrap in Descendants(panel).OfType<WrapPanel>())
+            {
+                foreach (FrameworkElement child in wrap.Children)
+                {
+                    var origin = child.TranslatePoint(new Point(), wrap);
+                    Assert.True(origin.X + child.ActualWidth <= wrap.ActualWidth + 0.5);
+                }
+            }
+            var recentSection = (Border)window.FindName("DashboardRecentSection");
+            Assert.Equal(width < 740 ? 1 : 0, Grid.GetRow(recentSection));
+            foreach (var list in Descendants(panel).OfType<ItemsControl>()
+                         .Where(list => ReferenceEquals(list.ItemTemplate, window.Resources["ShowcaseRankItemTemplate"])))
+            {
+                Assert.All(Descendants(list).OfType<Button>(), button =>
+                    Assert.True(button.ActualWidth >= list.ActualWidth - 1, "Rank rows should fill the list width."));
+            }
+            SaveSnapshot(panel, $"dashboard-showcase-{width:0}.png");
         }
     }
 

@@ -98,7 +98,7 @@ public partial class ManageCoversWindow : Window
             return;
         }
         var choice = MessageBox.Show(
-            $"删除{(cover.IsPrimary ? "当前主封面" : cover.PositionLabel)}？\n\n图片会从 QuietShelf 的本地数据目录移除。",
+            $"删除{(cover.IsPrimary ? "当前主封面" : cover.PositionLabel)}？\n\n图片会从一页的本地数据目录移除。",
             "删除封面", MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (choice != MessageBoxResult.Yes)
         {

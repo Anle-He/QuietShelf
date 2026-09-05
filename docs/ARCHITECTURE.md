@@ -2,18 +2,25 @@
 
 ## 决策
 
-- **界面**：.NET 10 LTS + WPF。原生 Windows 桌面技术，发布时可生成自包含应用。
+- **界面**：.NET 10 LTS + WPF。原生 Windows 桌面技术；本机发布采用依赖 .NET Desktop Runtime 的 win-x64 多文件目录。
 - **存储**：SQLite，数据库位于用户本地应用数据目录。
 - **访问方式**：轻量 SQL 仓储，不引入 ORM；当前数据模型很小，显式迁移更容易审计。
-- **结构**：单应用项目，按 `Models`、`Data` 和窗口拆分。`works` 保存作品，`work_covers` 保存封面顺序与本地文件名，`experiences` 保存每次阅读或观看，`progress_entries` 保存一次体验中的每日进度。
+- **结构**：单应用项目，按 `Models`、`Data` 和窗口拆分。`works` 保存作品，`work_covers` 保存封面顺序与本地文件名，`experiences` 保存每次阅读或观看，`progress_entries` 保留历史资料中的过程记录，供兼容读取和关联删除使用。
 
 ## 数据流
 
-`作品窗口 / 封面窗口 / 经历窗口 / 进度窗口 → LibraryRepository → SQLite + covers 文件夹 → 聚合查询 → 作品库 / 详情界面`
+`作品窗口 / 封面窗口 / 完成记录窗口 → LibraryRepository → SQLite + covers 文件夹 → 聚合查询 → 首页 / 作品详情`
 
 界面不直接拼接 SQL。数据库初始化和迁移集中在 `Database.cs`，读写与综合分查询集中在 `LibraryRepository.cs`。旧 `media_entries` 表只作为无损迁移和回退来源保留。
 
 作品状态由其经历派生：存在未完成的已开始经历时为“进行中”，否则存在已完成经历时为“已完成”，没有经历时为“计划中”。仓储在经历增删改后刷新持久化状态，查询时也按经历重新计算，避免历史状态漂移影响界面。
+
+## 窗口职责
+
+- MainWindow.xaml.cs 负责作品选择、搜索筛选和记录编辑。
+- MainWindow.Dashboard.cs 负责首页集合刷新和卡片导航；导航复用内存作品列表，只加载目标作品详情。
+- MainWindow.Covers.cs 负责封面展示。
+- 首页标题共用样式；作者榜与最近完成采用自动换行布局。
 
 ## 数据安全
 
