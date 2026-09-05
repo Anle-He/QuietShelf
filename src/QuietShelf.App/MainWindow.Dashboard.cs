@@ -83,14 +83,25 @@ public partial class MainWindow
         DashboardShowcasePanel.Visibility = _allWorks.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
     }
 
+    private void DashboardRankings_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var narrow = e.NewSize.Width < 780;
+        DashboardRankings.ColumnDefinitions[3].Width = new GridLength(narrow ? 0 : 12);
+        DashboardRankings.ColumnDefinitions[4].Width = narrow ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+        Grid.SetRowSpan(DashboardBookRanking, narrow ? 2 : 1);
+        Grid.SetColumn(DashboardAuthorRanking, narrow ? 2 : 4);
+        Grid.SetRow(DashboardAuthorRanking, narrow ? 1 : 0);
+        DashboardAuthorRanking.Margin = narrow ? new Thickness(0, 12, 0, 0) : new Thickness(0);
+    }
+
     private void DashboardHighlights_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         var stacked = e.NewSize.Width < 740;
-        Grid.SetColumnSpan(DashboardFirstBookSection, stacked ? 3 : 1);
-        Grid.SetColumn(DashboardRecentSection, stacked ? 0 : 2);
-        Grid.SetRow(DashboardRecentSection, stacked ? 1 : 0);
         Grid.SetColumnSpan(DashboardRecentSection, stacked ? 3 : 1);
-        DashboardRecentSection.Margin = stacked ? new Thickness(0, 14, 0, 0) : new Thickness(0);
+        Grid.SetColumn(DashboardFirstBookSection, stacked ? 0 : 2);
+        Grid.SetRow(DashboardFirstBookSection, stacked ? 1 : 0);
+        Grid.SetColumnSpan(DashboardFirstBookSection, stacked ? 3 : 1);
+        DashboardFirstBookSection.Margin = stacked ? new Thickness(0, 12, 0, 0) : new Thickness(0);
     }
 
     private async void DashboardWork_Open(object sender, RoutedEventArgs e)

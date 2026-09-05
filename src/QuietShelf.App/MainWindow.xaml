@@ -26,6 +26,13 @@
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+        <Style x:Key="DashboardScore" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Georgia, Palatino Linotype"/>
+            <Setter Property="FontStyle" Value="Italic"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="Foreground" Value="{StaticResource ScoreBrush}"/>
+        </Style>
         <Style x:Key="WidgetShell" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource SurfaceSecondaryBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
@@ -119,27 +126,31 @@
                 </DataTemplate.Triggers>
         </DataTemplate>
         <DataTemplate x:Key="ShowcaseRankItemTemplate">
-            <Button Tag="{Binding}" Click="DashboardWork_Open" Background="Transparent" BorderThickness="0" Padding="0" Margin="0,0,0,8" Cursor="Hand" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+            <Button Tag="{Binding}" ToolTip="{Binding CompletionLabel}" Click="DashboardWork_Open" Background="Transparent" BorderThickness="0" Padding="0" Cursor="Hand" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Surface" Padding="0,10" CornerRadius="0" Background="Transparent" BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,0,0,1">
+                        <Border x:Name="Surface" Padding="0,6" Background="Transparent" BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,1,0,0">
                             <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="52"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="52"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                 <Border Width="44" Height="64" CornerRadius="5" Background="{StaticResource AccentSoftBrush}" ClipToBounds="True">
                                     <Grid><TextBlock Text="{Binding KindGlyph}" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <Image Source="{Binding PrimaryCoverPath, Converter={StaticResource CoverImageConverter}, ConverterParameter=80}" Stretch="UniformToFill"/></Grid>
+                                    <Image Source="{Binding PrimaryCoverPath, Converter={StaticResource CoverImageConverter}, ConverterParameter=88}" Stretch="UniformToFill"/></Grid>
                                 </Border>
-                                <StackPanel Grid.Column="1" Margin="8,0,10,0" VerticalAlignment="Center">
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="{Binding CompletionLabel}" Margin="0,4,0,0" FontSize="10.5" Foreground="{StaticResource MutedBrush}"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                    <TextBlock Text="{Binding RankLabel}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource ScoreBrush}" HorizontalAlignment="Right"/>
-                                    <TextBlock Text="{Binding RankMaximumLabel}" FontSize="9" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Right"/>
+                                    <StackPanel HorizontalAlignment="Left" Margin="0,4,0,0">
+                                        <TextBlock Text="{Binding RankLabel}" Style="{StaticResource DashboardScore}">
+                                            <TextBlock.ToolTip><TextBlock><TextBlock.Text><MultiBinding StringFormat="{}{0} {1}"><Binding Path="RankLabel"/><Binding Path="RankMaximumLabel"/></MultiBinding></TextBlock.Text></TextBlock></TextBlock.ToolTip>
+                                        </TextBlock>
+                                        <Border Width="16" Height="1" Margin="0,2,0,0" HorizontalAlignment="Right" Background="{StaticResource ScoreBrush}" Opacity="0.55"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </Grid>
                         </Border>
-                        <ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="{StaticResource AccentLineBrush}"/><Setter TargetName="Surface" Property="Background" Value="{StaticResource SurfaceHoverBrush}"/></Trigger></ControlTemplate.Triggers>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding Path=(ItemsControl.AlternationIndex), RelativeSource={RelativeSource AncestorType=ContentPresenter}}" Value="0"><Setter TargetName="Surface" Property="BorderThickness" Value="0"/></DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="{StaticResource SurfaceHoverBrush}"/></Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Button.Template>
             </Button>
@@ -321,54 +332,55 @@
                         </Grid>
 
                         <StackPanel x:Name="DashboardShowcasePanel" Margin="0,24,0,0">
-                            <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                <Border Style="{StaticResource WidgetShell}"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="16">
+                            <Grid x:Name="DashboardRankings" SizeChanged="DashboardRankings_SizeChanged">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <Border x:Name="DashboardBookRanking" VerticalAlignment="Top" Style="{StaticResource WidgetShell}"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="12">
                                     <StackPanel>
-                                        <Grid Margin="0,0,0,12"><StackPanel Orientation="Horizontal"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource AccentSoftBrush}"><ui:SymbolIcon Symbol="Book24" FontSize="16" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="书籍评分榜" Style="{StaticResource ShowcaseHeading}"/></StackPanel></Grid>
-                                        <ItemsControl ItemsSource="{Binding DashboardTopBooks}" ItemTemplate="{StaticResource ShowcaseRankItemTemplate}"/>
+                                        <Grid Margin="0,0,0,6"><StackPanel Orientation="Horizontal"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource AccentSoftBrush}"><ui:SymbolIcon Symbol="Book24" FontSize="16" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="书籍评分榜" Style="{StaticResource ShowcaseHeading}"/></StackPanel></Grid>
+                                        <ItemsControl AlternationCount="3" ItemsSource="{Binding DashboardTopBooks}" ItemTemplate="{StaticResource ShowcaseRankItemTemplate}"/>
                                         <TextBlock Text="还没有完整评分的书籍" Margin="4,10" Foreground="{StaticResource MutedBrush}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding DashboardTopBooks.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
                                     </StackPanel>
                                 </Border></Border>
-                                <Border Grid.Column="2" Style="{StaticResource WidgetShell}"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="16">
+                                <Border x:Name="DashboardScreenRanking" Grid.Column="2" VerticalAlignment="Top" Style="{StaticResource WidgetShell}"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="12">
                                     <StackPanel>
-                                        <Grid Margin="0,0,0,12"><StackPanel Orientation="Horizontal"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource WarmSoftBrush}"><ui:SymbolIcon Symbol="MoviesAndTv24" FontSize="16" Foreground="{StaticResource WarmBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="影视评分榜" Style="{StaticResource ShowcaseHeading}"/></StackPanel></Grid>
-                                        <ItemsControl ItemsSource="{Binding DashboardTopScreens}" ItemTemplate="{StaticResource ShowcaseRankItemTemplate}"/>
+                                        <Grid Margin="0,0,0,6"><StackPanel Orientation="Horizontal"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource WarmSoftBrush}"><ui:SymbolIcon Symbol="MoviesAndTv24" FontSize="16" Foreground="{StaticResource WarmBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="影视评分榜" Style="{StaticResource ShowcaseHeading}"/></StackPanel></Grid>
+                                        <ItemsControl AlternationCount="3" ItemsSource="{Binding DashboardTopScreens}" ItemTemplate="{StaticResource ShowcaseRankItemTemplate}"/>
                                         <TextBlock Text="还没有完整评分的影视" Margin="4,10" Foreground="{StaticResource MutedBrush}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding DashboardTopScreens.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
                                     </StackPanel>
                                 </Border></Border>
+                            <Border x:Name="DashboardAuthorRanking" Grid.Column="4" VerticalAlignment="Top" Style="{StaticResource WidgetShell}"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="12">
+                                <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource AccentSoftBrush}"><ui:SymbolIcon Symbol="PersonStar24" FontSize="16" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="作者评分榜" Style="{StaticResource ShowcaseHeading}"/></StackPanel>
+                                    <ItemsControl Grid.Row="1" Margin="0,14,0,0" ItemsSource="{Binding DashboardTopAuthors}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Margin="0,0,0,6" Padding="8" CornerRadius="13" Background="{StaticResource SurfaceSecondaryBrush}"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding PositionLabel}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource AccentLineBrush}" VerticalAlignment="Center"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding Author}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/></StackPanel><StackPanel Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Center"><TextBlock Text="{Binding WeightedRankLabel}" Style="{StaticResource DashboardScore}" ToolTip="{Binding EvidenceLabel}"/><Border Width="16" Height="1" Margin="0,3,0,0" HorizontalAlignment="Right" Background="{StaticResource ScoreBrush}" Opacity="0.55"/></StackPanel></Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                                    <TextBlock Grid.Row="1" Margin="2,14,0,0" Text="暂无作者评分" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding DashboardTopAuthors.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                                </Grid>
+                            </Border></Border>
                             </Grid>
 
                             <Grid x:Name="DashboardHighlights" Margin="0,14,0,0" SizeChanged="DashboardHighlights_SizeChanged">
                                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="0.9*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="1.4*"/></Grid.ColumnDefinitions>
-                                <Border x:Name="DashboardFirstBookSection" Style="{StaticResource WidgetShell}" VerticalAlignment="Top"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="17">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="1.4*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="0.9*"/></Grid.ColumnDefinitions>
+                                <Border x:Name="DashboardFirstBookSection" Grid.Column="2" Style="{StaticResource WidgetShell}" VerticalAlignment="Top"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="12">
                                     <Grid>
                                         <StackPanel>
                                             <StackPanel Orientation="Horizontal"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource AccentSoftBrush}"><ui:SymbolIcon Symbol="CalendarLtr24" FontSize="16" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="今年的第一本书" Style="{StaticResource ShowcaseHeading}"/></StackPanel>
-                                            <Button x:Name="DashboardFirstBookCard" HorizontalAlignment="Stretch" Tag="{Binding}" Click="DashboardWork_Open" Margin="0,17,0,0" Padding="0" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch" Cursor="Hand">
+                                            <Button x:Name="DashboardFirstBookCard" HorizontalAlignment="Stretch" Tag="{Binding}" Click="DashboardWork_Open" Margin="0,10,0,0" Padding="0" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch" Cursor="Hand">
                                                 <Button.Template><ControlTemplate TargetType="Button"><Border x:Name="Surface" Padding="14" CornerRadius="14" Background="{StaticResource AccentSoftBrush}"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Border Width="48" Height="68" CornerRadius="6" Background="{StaticResource SurfaceBrush}" ClipToBounds="True"><Grid><ui:SymbolIcon Symbol="Book24" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/><Image Source="{Binding PrimaryCoverPath, Converter={StaticResource CoverImageConverter}, ConverterParameter=110}" Stretch="UniformToFill"/></Grid></Border><StackPanel Grid.Column="1" Margin="11,0,0,0" VerticalAlignment="Center"><TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Author}" Margin="0,4,0,0" FontSize="11" Foreground="{StaticResource MutedStrongBrush}" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding FirstDateLabel, StringFormat=完成于 {0}}" Margin="0,7,0,0" FontSize="10.5" Foreground="{StaticResource AccentBrush}"/></StackPanel></Grid></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="#D2E7DB"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Button.Template>
                                             </Button>
                                             <TextBlock x:Name="DashboardFirstBookEmpty" Text="今年还没有完成书籍记录。" Margin="2,20,0,8" Foreground="{StaticResource MutedBrush}"/>
                                         </StackPanel>
                                     </Grid>
                                 </Border></Border>
-                                <Border x:Name="DashboardRecentSection" Grid.Column="2" Style="{StaticResource WidgetShell}"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="17">
+                                <Border x:Name="DashboardRecentSection" Grid.Column="0" VerticalAlignment="Top" Style="{StaticResource WidgetShell}"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="12">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource WarmSoftBrush}"><ui:SymbolIcon Symbol="History24" FontSize="16" Foreground="{StaticResource WarmBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="最近完成" Style="{StaticResource ShowcaseHeading}"/></StackPanel>
-                                        <ItemsControl ItemsSource="{Binding DashboardRecentWorks}" ItemTemplate="{StaticResource RecentShowcaseItemTemplate}" Margin="0,17,0,0"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl>
+                                        <ItemsControl ItemsSource="{Binding DashboardRecentWorks}" ItemTemplate="{StaticResource RecentShowcaseItemTemplate}" Margin="0,10,0,0"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl>
                                         <TextBlock Text="完成记录会在这里形成封面陈列。" Margin="2,20,0,8" Foreground="{StaticResource MutedBrush}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding DashboardRecentWorks.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
                                     </StackPanel>
                                 </Border></Border>
                             </Grid>
 
-                            <Border Margin="0,14,0,0" Style="{StaticResource WidgetShell}"><Border Background="{StaticResource SurfaceBrush}" CornerRadius="17" Padding="17">
-                                <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center"><Border Width="32" Height="32" CornerRadius="10" Background="{StaticResource AccentSoftBrush}"><ui:SymbolIcon Symbol="PersonStar24" FontSize="16" Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><TextBlock Text="作者评分榜" Style="{StaticResource ShowcaseHeading}"/></StackPanel>
-                                    <ItemsControl Grid.Row="1" Margin="0,14,0,0" ItemsSource="{Binding DashboardTopAuthors}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Width="190" Margin="0,0,10,10" Padding="13" CornerRadius="13" Background="{StaticResource SurfaceSecondaryBrush}"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="{Binding PositionLabel}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource AccentLineBrush}" VerticalAlignment="Center"/><StackPanel Grid.Column="1"><TextBlock Text="{Binding Author}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding EvidenceLabel}" Margin="0,4,0,0" FontSize="9.5" Foreground="{StaticResource MutedBrush}"/></StackPanel><TextBlock Grid.Column="2" Text="{Binding WeightedRankLabel}" Margin="8,0,0,0" FontSize="19" FontWeight="SemiBold" Foreground="{StaticResource ScoreBrush}" VerticalAlignment="Center"/></Grid></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
-                                    <TextBlock Grid.Row="1" Margin="2,14,0,0" Text="暂无作者评分" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding DashboardTopAuthors.Count}" Value="0"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
-                                </Grid>
-                            </Border></Border>
                         </StackPanel>
 
                         <Border Margin="0,18,0,0" Padding="26,22,26,8" Background="#E4EAE4" BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" CornerRadius="24">

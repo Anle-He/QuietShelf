@@ -108,7 +108,7 @@ public sealed class UiSmokeTests
                 FirstCompletedOn = new DateOnly(2026, 1, index), LatestCompletedOn = new DateOnly(2026, 8, index)
             };
             window.DashboardTopBooks.Add(work);
-            window.DashboardTopScreens.Add(work);
+            if (index == 1) window.DashboardTopScreens.Add(work);
             window.DashboardRecentWorks.Add(work);
             window.DashboardTopAuthors.Add(new DashboardAuthorRank
             {
@@ -134,14 +134,17 @@ public sealed class UiSmokeTests
                     Assert.True(origin.X + child.ActualWidth <= wrap.ActualWidth + 0.5);
                 }
             }
-            var recentSection = (Border)window.FindName("DashboardRecentSection");
-            Assert.Equal(width < 740 ? 1 : 0, Grid.GetRow(recentSection));
+            Assert.True(((Border)window.FindName("DashboardScreenRanking")).ActualHeight <
+                        ((Border)window.FindName("DashboardBookRanking")).ActualHeight);
+            var firstBookSection = (Border)window.FindName("DashboardFirstBookSection");
+            Assert.Equal(width < 740 ? 1 : 0, Grid.GetRow(firstBookSection));
             foreach (var list in Descendants(panel).OfType<ItemsControl>()
                          .Where(list => ReferenceEquals(list.ItemTemplate, window.Resources["ShowcaseRankItemTemplate"])))
             {
                 Assert.All(Descendants(list).OfType<Button>(), button =>
                     Assert.True(button.ActualWidth >= list.ActualWidth - 1, "Rank rows should fill the list width."));
             }
+            Assert.Equal(width < 780 ? 1 : 0, Grid.GetRow((Border)window.FindName("DashboardAuthorRanking")));
             SaveSnapshot(panel, $"dashboard-showcase-{width:0}.png");
         }
     }
