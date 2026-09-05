@@ -16,7 +16,7 @@
 
 ## 安装与数据
 
-需要 Windows x64 和 [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)。从 [Releases](https://github.com/Anle-He/QuietShelf/releases) 下载 `QuietShelf-Setup-<版本>.exe`，后续安装包使用 `Yiye-Setup-<版本>.exe` 命名。安装后可从开始菜单搜索 `Yiye` 启动，并在 Windows“已安装的应用”中卸载。
+需要 Windows x64 和 [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)。从 [Releases](https://github.com/Anle-He/Yiye/releases) 下载 `QuietShelf-Setup-<版本>.exe`，后续安装包使用 `Yiye-Setup-<版本>.exe` 命名。安装后可从开始菜单搜索 `Yiye` 启动，并在 Windows“已安装的应用”中卸载。
 
 默认数据目录：
 
